@@ -23,4 +23,7 @@
     "vite": "^5.0.0",
     "typescript": "^4.9.5"
   }
+  "overrides": {
+  "@types/node": "^20.0.0"
+},
 }

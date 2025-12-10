@@ -1,3 +1,4 @@
+
 import { Round, Game, User, LogEntry } from '../types';
 
 export const MOCK_USER: User = {
@@ -9,7 +10,8 @@ export const MOCK_USER: User = {
   inventory: {
     doubles: 0,
     superDoubles: 0
-  }
+  },
+  cpf: '123.456.789-00'
 };
 
 export const MOCK_PRO_USER: User = {
@@ -21,7 +23,8 @@ export const MOCK_PRO_USER: User = {
   inventory: {
     doubles: 5, // Example: started with some bought items
     superDoubles: 2
-  }
+  },
+  cpf: '987.654.321-99'
 };
 
 export const MOCK_ADMIN: User = {
@@ -33,7 +36,8 @@ export const MOCK_ADMIN: User = {
   inventory: {
     doubles: 999,
     superDoubles: 999
-  }
+  },
+  cpf: '000.000.000-00'
 };
 
 export const MOCK_ALL_USERS: User[] = [
@@ -46,7 +50,8 @@ export const MOCK_ALL_USERS: User[] = [
     email: 'mister@fantasy12.com',
     role: 'pro',
     balance: 1200,
-    inventory: { doubles: 10, superDoubles: 5 }
+    inventory: { doubles: 10, superDoubles: 5 },
+    cpf: '111.222.333-44'
   },
   {
     id: 'u5',
@@ -54,7 +59,8 @@ export const MOCK_ALL_USERS: User[] = [
     email: 'abel@fantasy12.com',
     role: 'user',
     balance: 50,
-    inventory: { doubles: 0, superDoubles: 0 }
+    inventory: { doubles: 0, superDoubles: 0 },
+    cpf: '555.666.777-88'
   }
 ];
 

@@ -9,9 +9,10 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
   currentPage: string;
   onCreatePool?: () => void;
+  onProfileClick?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavigate, currentPage, onCreatePool }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavigate, currentPage, onCreatePool, onProfileClick }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   return (
@@ -92,9 +93,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavi
                       </button>
                    )}
 
-                  <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center">
+                  <button 
+                    onClick={onProfileClick}
+                    className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center hover:bg-orange-500 hover:text-white transition-colors cursor-pointer"
+                    title="Meu Perfil"
+                  >
                     <UserIcon size={16} />
-                  </div>
+                  </button>
                   <button onClick={onLogout} className="text-slate-400 hover:text-white" title="Sair">
                     <LogOut size={18} />
                   </button>
@@ -123,6 +128,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavi
             </button>
             <button onClick={() => {onNavigate('bar'); setIsMenuOpen(false)}} className="w-full text-left px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2 border-b border-slate-700/50">
               <Beer size={16}/> BAR (Comprar Fichas)
+            </button>
+            <button onClick={() => {onProfileClick?.(); setIsMenuOpen(false)}} className="w-full text-left px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white flex items-center gap-2 border-b border-slate-700/50">
+              <UserIcon size={16}/> Meu Perfil
             </button>
             
             {user.role === 'pro' && onCreatePool && (

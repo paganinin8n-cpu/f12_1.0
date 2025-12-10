@@ -1,3 +1,4 @@
+
 export type Role = 'user' | 'pro' | 'admin';
 
 export interface User {
@@ -10,6 +11,10 @@ export interface User {
     doubles: number;
     superDoubles: number;
   };
+  // New fields for User Creation
+  cpf?: string;
+  phone?: string;
+  password?: string;
 }
 
 export type GameStatus = 'scheduled' | 'live' | 'finished' | 'cancelled';

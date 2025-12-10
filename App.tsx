@@ -1,14 +1,30 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { BettingPage } from './pages/BettingPage';
-import { AdminPage } from './pages/AdminPage'; // Import AdminPage
+import { AdminPage } from './pages/AdminPage';
 import { User, Selection, Pool, RankingEntry, Round, LogEntry } from './types';
 import { MOCK_USER, MOCK_PRO_USER, MOCK_ADMIN, MOCK_ROUNDS, MOCK_ALL_USERS, MOCK_LOGS } from './services/mockData';
 import { 
   CheckCircle, Trophy, ArrowRight, Beer, Users, Crown, 
   Calendar, Zap, Coins, ShoppingBag, Search, X, 
-  ClipboardList, PlayCircle, PlusCircle, Star, Check, Eye
+  ClipboardList, PlayCircle, PlusCircle, Star, Check, Eye,
+  UserPlus, ArrowLeft, CreditCard, Lock, Phone, Mail, User as UserIcon, Globe, Save
 } from 'lucide-react';
+
+// --- HELPERS ---
+const formatCPF = (value: string) => {
+  return value
+    .replace(/\D/g, '')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+    .replace(/(-\d{2})\d+?$/, '$1');
+};
+
+const validateCPF = (cpf: string): boolean => {
+  const cleanCPF = cpf.replace(/[^\d]+/g, '');
+  return cleanCPF.length === 11 && !/^(\d)\1+$/.test(cleanCPF);
+};
 
 // --- MOCK DATA GENERATORS ---
 
@@ -66,6 +82,119 @@ const MOCK_POOLS: Pool[] = [
 ];
 
 // --- COMPONENTS ---
+
+// Profile Page Component
+const ProfilePage = ({ user, onSave, onCancel }: { user: User, onSave: (u: User) => void, onCancel: () => void }) => {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [phone, setPhone] = useState(user.phone || '');
+  const [password, setPassword] = useState(user.password || '');
+  const [cpf, setCpf] = useState(user.cpf || '');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email) {
+      alert("Nome e Email são obrigatórios.");
+      return;
+    }
+    
+    onSave({
+      ...user,
+      name,
+      email,
+      phone,
+      password,
+      cpf
+    });
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-4">
+      <div className="flex items-center gap-4 mb-6 border-b border-slate-100 pb-4">
+        <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center text-slate-500">
+          <UserIcon size={32} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Meu Perfil</h2>
+          <p className="text-slate-500 text-sm">Gerencie suas informações pessoais</p>
+        </div>
+        <div className="ml-auto">
+          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${user.role === 'pro' ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'}`}>
+            {user.role}
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Completo</label>
+            <input 
+              type="text" 
+              value={name} 
+              onChange={e => setName(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">CPF</label>
+            <input 
+              type="text" 
+              value={cpf} 
+              readOnly
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none bg-slate-100 text-slate-500 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Telefone / WhatsApp</label>
+            <input 
+              type="text" 
+              value={phone} 
+              onChange={e => setPhone(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="(00) 00000-0000"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Alterar Senha</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="Digite nova senha para alterar"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
+          <button 
+            type="button" 
+            onClick={onCancel}
+            className="px-6 py-2 rounded-lg text-slate-500 font-bold hover:bg-slate-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button 
+            type="submit"
+            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow-lg transition-colors flex items-center gap-2"
+          >
+            <Save size={18} /> Salvar Alterações
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
 
 // 1. Create Pool Modal
 const CreatePoolModal = ({ onClose, onSave, currentUser }: { onClose: () => void, onSave: (pool: Pool) => void, currentUser: User }) => {
@@ -237,7 +366,7 @@ const ViewBetModal = ({ selections, round, onClose }: { selections: Selection[],
             return (
               <div key={game.id} className="bg-white rounded-lg shadow-sm border border-slate-200 p-2 text-xs">
                 <div className="flex justify-between items-center mb-1.5 border-b border-slate-50 pb-1">
-                   <span className="text-[10px] font-bold text-slate-400 px-1">JOGO {game.order}</span>
+                   <span className="text-xs font-bold text-slate-400 px-1">JOGO {game.order}</span>
                    <div className="flex gap-1">
                       {isDouble && <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Zap size={8}/> 2x</span>}
                       {isSuper && <span className="text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Crown size={8}/> 4x</span>}
@@ -688,29 +817,48 @@ const Dashboard = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
            {poolTab === 'my' ? (
-              myPools.length > 0 ? (
-                myPools.map(pool => (
-                   <div key={pool.id} className="bg-white p-5 rounded-xl border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-2">
-                         <h4 className="font-bold text-slate-800">{pool.title}</h4>
-                         <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full">ATIVO</span>
-                      </div>
-                      <div className="text-sm text-slate-500 mb-4 flex items-center gap-2">
-                         <Star size={14} className="text-yellow-500" /> Seus Pontos: {1250} {/* Mock */}
-                      </div>
-                      <button 
-                        onClick={() => openPoolRanking(pool)}
-                        className="w-full py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-                      >
-                         Ver Classificação
-                      </button>
-                   </div>
-                ))
-              ) : (
-                <div className="col-span-full text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                   <p className="text-slate-500 mb-2">Você não está participando de nenhum bolão.</p>
-                   <button onClick={() => setPoolTab('all')} className="text-orange-600 font-bold hover:underline">Buscar Bolões</button>
+              user.role !== 'pro' ? (
+                // Locked State for non-PRO users
+                <div className="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-8 text-center flex flex-col items-center">
+                    <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                        <Lock size={32} className="text-yellow-600" />
+                    </div>
+                    <h4 className="text-lg font-bold text-slate-800 mb-2">Área Exclusiva PRO</h4>
+                    <p className="text-slate-500 max-w-md mb-6 text-sm">
+                        Apenas jogadores PRO podem criar e participar de Bolões privados. Faça o upgrade para desbloquear esta funcionalidade.
+                    </p>
+                    <button 
+                      onClick={() => setPoolTab('all')}
+                      className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800 transition-colors"
+                    >
+                      Ver Bolões Disponíveis
+                    </button>
                 </div>
+              ) : (
+                myPools.length > 0 ? (
+                    myPools.map(pool => (
+                    <div key={pool.id} className="bg-white p-5 rounded-xl border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-bold text-slate-800">{pool.title}</h4>
+                            <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full">ATIVO</span>
+                        </div>
+                        <div className="text-sm text-slate-500 mb-4 flex items-center gap-2">
+                            <Star size={14} className="text-yellow-500" /> Seus Pontos: {1250} {/* Mock */}
+                        </div>
+                        <button 
+                            onClick={() => openPoolRanking(pool)}
+                            className="w-full py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                        >
+                            Ver Classificação
+                        </button>
+                    </div>
+                    ))
+                ) : (
+                    <div className="col-span-full text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                    <p className="text-slate-500 mb-2">Você não está participando de nenhum bolão.</p>
+                    <button onClick={() => setPoolTab('all')} className="text-orange-600 font-bold hover:underline">Buscar Bolões</button>
+                    </div>
+                )
               )
            ) : (
               filteredAvailable.length > 0 ? (
@@ -727,9 +875,29 @@ const Dashboard = ({
                           <span className="flex items-center gap-1"><Users size={14}/> {pool.participantsCount} part.</span>
                           <span className="flex items-center gap-1"><Trophy size={14} className="text-yellow-500"/> {pool.prizePool}</span>
                        </div>
-                       <button onClick={() => joinPool(pool.id)} className="w-full py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors">
-                          Entrar no Bolão
-                       </button>
+                       <div className="flex gap-2">
+                           {/* Button 1: Ranking (Open for all) */}
+                           <button 
+                               onClick={() => openPoolRanking(pool)}
+                               className="flex-1 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                           >
+                               Ranking
+                           </button>
+
+                           {/* Button 2: Entrar (Restricted to PRO) */}
+                           <button 
+                              onClick={() => joinPool(pool.id)} 
+                              disabled={user.role !== 'pro'}
+                              className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2
+                                ${user.role === 'pro' 
+                                    ? 'bg-slate-900 text-white hover:bg-slate-800' 
+                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                              title={user.role !== 'pro' ? "Exclusivo para PRO" : ""}
+                           >
+                              {user.role !== 'pro' && <Lock size={14} />}
+                              Entrar
+                           </button>
+                       </div>
                     </div>
                  ))
               ) : (
@@ -748,19 +916,85 @@ const Dashboard = ({
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
-  const [user, setUser] = useState<User | null>(MOCK_USER); // Default to standard user
   
-  // App Data State
-  const [pools, setPools] = useState<Pool[]>(MOCK_POOLS);
+  // Persisted State Initialization
+  const [allUsers, setAllUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('fantasy12_users');
+    return saved ? JSON.parse(saved) : MOCK_ALL_USERS;
+  });
+
+  const [allRounds, setAllRounds] = useState<Round[]>(() => {
+    const saved = localStorage.getItem('fantasy12_rounds');
+    return saved ? JSON.parse(saved) : MOCK_ROUNDS;
+  });
+
+  const [pools, setPools] = useState<Pool[]>(() => {
+    const saved = localStorage.getItem('fantasy12_pools');
+    return saved ? JSON.parse(saved) : MOCK_POOLS;
+  });
+
+  const [logs, setLogs] = useState<LogEntry[]>(() => {
+    const saved = localStorage.getItem('fantasy12_logs');
+    return saved ? JSON.parse(saved) : MOCK_LOGS;
+  });
+
+  const [user, setUser] = useState<User | null>(null); 
+  
+  // Save State on Change
+  useEffect(() => localStorage.setItem('fantasy12_users', JSON.stringify(allUsers)), [allUsers]);
+  useEffect(() => localStorage.setItem('fantasy12_rounds', JSON.stringify(allRounds)), [allRounds]);
+  useEffect(() => localStorage.setItem('fantasy12_pools', JSON.stringify(pools)), [pools]);
+  useEffect(() => localStorage.setItem('fantasy12_logs', JSON.stringify(logs)), [logs]);
+
+  // App UI State
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [hasPlacedBet, setHasPlacedBet] = useState(false);
   const [lastBetSelections, setLastBetSelections] = useState<Selection[]>([]);
   const [showViewBetModal, setShowViewBetModal] = useState(false);
   
-  // Global State for Admin & App (Initialized from Mocks)
-  const [allRounds, setAllRounds] = useState<Round[]>(MOCK_ROUNDS);
-  const [allUsers, setAllUsers] = useState<User[]>(MOCK_ALL_USERS);
-  const [logs] = useState<LogEntry[]>(MOCK_LOGS); // Mock Logs State
+  // Registration State
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [regName, setRegName] = useState('');
+  const [regCpf, setRegCpf] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [isEmailManual, setIsEmailManual] = useState(false);
+
+  // Auto-generate email based on name
+  useEffect(() => {
+    if (!isEmailManual && regName) {
+      const slug = regName.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+      if (slug) {
+        setRegEmail(`${slug}@gmail.com`);
+      }
+    }
+  }, [regName, isEmailManual]);
+
+  const addLog = (action: string, details: string, type: 'info' | 'success' | 'warning' | 'error', userId: string, userName: string) => {
+    const newLog: LogEntry = {
+        id: `l-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        userId,
+        userName,
+        action,
+        details,
+        type
+    };
+    setLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleGoogleLogin = () => {
+     // Simulate API call to Google
+     setTimeout(() => {
+        const mockGoogleName = "Usuário Google";
+        const mockGoogleEmail = "usuario.google@gmail.com";
+        setRegName(mockGoogleName);
+        setRegEmail(mockGoogleEmail);
+        setIsEmailManual(true);
+        alert("Dados recuperados do Google com sucesso!");
+     }, 500);
+  }
 
   // Rankings State
   const [rankings] = useState(() => generateMockRankings(user ? user.id : 'u1'));
@@ -776,6 +1010,7 @@ const App: React.FC = () => {
     else if (role === 'pro') setUser(MOCK_PRO_USER);
     else setUser(MOCK_USER);
     setCurrentPage('dashboard');
+    addLog('Login', `Usuário ${role} logou`, 'info', 'unknown', role);
   };
 
   const handleLogout = () => {
@@ -783,16 +1018,68 @@ const App: React.FC = () => {
     setCurrentPage('login');
     setHasPlacedBet(false);
     setLastBetSelections([]);
+    setIsRegistering(false);
+  };
+
+  const handleRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName || !regCpf || !regPassword) {
+      alert("Por favor preencha Nome, CPF e Senha.");
+      return;
+    }
+    if (!validateCPF(regCpf)) {
+      alert("CPF inválido.");
+      return;
+    }
+
+    const newUser: User = {
+      id: `u-${Date.now()}`,
+      name: regName,
+      email: regEmail,
+      role: 'user',
+      balance: 0, // Rules state they must buy chips or use daily bonus
+      inventory: { doubles: 0, superDoubles: 0 },
+      cpf: regCpf,
+      phone: regPhone,
+      password: regPassword
+    };
+
+    setAllUsers(prev => [...prev, newUser]);
+    setUser(newUser);
+    addLog('Cadastro', 'Novo usuário registrado', 'success', newUser.id, newUser.name);
+    setCurrentPage('dashboard');
+    setIsRegistering(false);
+    alert("Conta criada com sucesso! Bem-vindo ao Fantasy12.");
+  };
+
+  const handleUpdateProfile = (updatedUser: User) => {
+     setAllUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+     setUser(updatedUser);
+     addLog('Perfil', 'Usuário atualizou dados', 'info', updatedUser.id, updatedUser.name);
+     alert("Perfil atualizado com sucesso!");
+     setCurrentPage('dashboard');
   };
 
   const handleCreatePool = (newPool: Pool) => {
     setPools([...pools, newPool]);
+    if (user) addLog('Criar Bolão', `Bolão "${newPool.title}" criado`, 'success', user.id, user.name);
   };
 
   const handleJoinPool = (poolId: string) => {
     if (!user) return;
+
+    if (user.role !== 'pro') {
+       alert("Apenas usuários PRO podem participar de Bolões Exclusivos. Atualize sua conta para competir!");
+       return;
+    }
+
     const pool = pools.find(p => p.id === poolId);
     if (!pool) return;
+
+    if (pool.participants.includes(user.id)) {
+        alert("Você já está neste bolão.");
+        return;
+    }
 
     if (user.balance < pool.entryFee) {
        alert("Saldo insuficiente para entrar neste bolão. Vá ao Bar comprar fichas!");
@@ -800,7 +1087,12 @@ const App: React.FC = () => {
     }
 
     // Deduct balance and add to pool
-    setUser({ ...user, balance: user.balance - pool.entryFee });
+    const updatedUser = { ...user, balance: user.balance - pool.entryFee };
+    setUser(updatedUser);
+    
+    // Update Global User State too
+    setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+
     setPools(pools.map(p => {
        if (p.id === poolId) {
           return { 
@@ -812,6 +1104,8 @@ const App: React.FC = () => {
        }
        return p;
     }));
+    
+    addLog('Entrar Bolão', `Entrou no bolão "${pool.title}"`, 'success', user.id, user.name);
     alert(`Você entrou no bolão "${pool.title}" com sucesso!`);
   };
 
@@ -863,6 +1157,7 @@ const App: React.FC = () => {
         if (type === 'fichas') {
              const addedChips = item === '10 Fichas' ? 10 : item === '20 Fichas' ? 20 : 100;
              updatedUser.balance += addedChips;
+             addLog('Compra Fichas', `Comprou ${addedChips} fichas`, 'info', user.id, user.name);
         } else if (type === 'powerup' && rewardKey && rewardAmount) {
              // Deduct cost
              if (updatedUser.balance < cost) {
@@ -877,20 +1172,159 @@ const App: React.FC = () => {
              } else if (rewardKey === 'superDoubles') {
                  updatedUser.inventory.superDoubles += rewardAmount;
              }
+             addLog('Compra PowerUp', `Comprou ${rewardAmount} ${rewardKey}`, 'info', user.id, user.name);
         }
         
         setUser(updatedUser);
+        setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
     }
   };
 
   const handleSubmitBet = (selections: Selection[], cost: number) => {
     alert(`Aposta enviada! Custo: ${cost} fichas.`);
+    if (user) addLog('Aposta', `Realizou aposta na rodada ${activeRound.title}`, 'success', user.id, user.name);
     setLastBetSelections(selections);
     setHasPlacedBet(true);
     setCurrentPage('dashboard');
   };
 
   if (!user) {
+    if (isRegistering) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 animate-in fade-in zoom-in duration-300">
+           <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full relative">
+              <button 
+                onClick={() => setIsRegistering(false)}
+                className="absolute top-4 left-4 text-slate-400 hover:text-slate-600 flex items-center gap-1 text-sm font-bold"
+              >
+                <ArrowLeft size={16} /> Voltar
+              </button>
+              
+              <div className="text-center mb-6 mt-6">
+                <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/30">
+                  <UserPlus className="text-white" size={24} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Criar Nova Conta</h2>
+                <p className="text-slate-500 text-sm">Preencha os dados para começar a apostar.</p>
+              </div>
+
+              {/* Google Sign In Simulation */}
+              <div className="mb-6">
+                 <button 
+                    onClick={handleGoogleLogin}
+                    className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
+                 >
+                    <div className="w-5 h-5">
+                       {/* Simple Google G SVG representation */}
+                       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                       </svg>
+                    </div>
+                    Cadastrar com Google
+                 </button>
+                 <div className="relative flex py-4 items-center">
+                    <div className="flex-grow border-t border-slate-200"></div>
+                    <span className="flex-shrink mx-4 text-slate-400 text-xs uppercase">Ou preencha</span>
+                    <div className="flex-grow border-t border-slate-200"></div>
+                 </div>
+              </div>
+
+              <form onSubmit={handleRegister} className="space-y-4">
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Completo *</label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        value={regName}
+                        onChange={e => setRegName(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                        placeholder="Seu Nome"
+                        required
+                      />
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">CPF *</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        value={regCpf}
+                        onChange={e => setRegCpf(formatCPF(e.target.value))}
+                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                        placeholder="000.000.000-00"
+                        maxLength={14}
+                        required
+                      />
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha *</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                      <input 
+                        type="password"
+                        value={regPassword}
+                        onChange={e => setRegPassword(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                        placeholder="******"
+                        required
+                      />
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">WhatsApp (Opcional)</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        value={regPhone}
+                        onChange={e => setRegPhone(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                      <input 
+                        type="email"
+                        value={regEmail}
+                        onChange={e => {
+                           setRegEmail(e.target.value);
+                           setIsEmailManual(true);
+                        }}
+                        className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 outline-none ${isEmailManual ? 'border-slate-300 bg-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+                        placeholder="seu@email.com"
+                      />
+                    </div>
+                    {!isEmailManual && regName && (
+                       <p className="text-[10px] text-slate-400 mt-1 italic">Email gerado automaticamente. Clique para editar.</p>
+                    )}
+                 </div>
+
+                 <button 
+                   type="submit" 
+                   className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 transition-all active:scale-95 mt-4"
+                 >
+                   Confirmar Cadastro
+                 </button>
+              </form>
+           </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
         <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
@@ -914,9 +1348,19 @@ const App: React.FC = () => {
               <Crown size={18} className="text-yellow-400" />
               Entrar como PRO
             </button>
+            
+            <div className="pt-4 border-t border-slate-100 mt-4">
+               <button 
+                  onClick={() => setIsRegistering(true)}
+                  className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-md shadow-green-600/20 flex items-center justify-center gap-2"
+               >
+                  <UserPlus size={18} /> Criar Nova Conta
+               </button>
+            </div>
+
             <button 
               onClick={() => handleLogin('admin')}
-              className="w-full py-2 text-sm text-slate-400 hover:text-slate-600 underline"
+              className="w-full py-2 text-sm text-slate-400 hover:text-slate-600 underline mt-2"
             >
               Acesso Admin
             </button>
@@ -933,6 +1377,7 @@ const App: React.FC = () => {
       onNavigate={setCurrentPage} 
       currentPage={currentPage}
       onCreatePool={() => setShowCreatePool(true)}
+      onProfileClick={() => setCurrentPage('profile')}
     >
       {currentPage === 'dashboard' && (
         <Dashboard 
@@ -959,6 +1404,14 @@ const App: React.FC = () => {
 
       {currentPage === 'bar' && (
         <BarPage onBuy={handleBuy} />
+      )}
+
+      {currentPage === 'profile' && user && (
+        <ProfilePage 
+          user={user}
+          onSave={handleUpdateProfile}
+          onCancel={() => setCurrentPage('dashboard')}
+        />
       )}
 
       {currentPage === 'admin' && (

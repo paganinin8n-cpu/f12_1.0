@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Round, User, Game, GameStatus, RoundStatus, Role, LogEntry } from '../types';
 import { 
   Users, Calendar, Save, Plus, 
-  Coins, Zap, Crown, Minus, Edit3, XCircle, ScrollText, Search, Filter
+  Coins, Zap, Crown, Minus, Edit3, XCircle, ScrollText, Search, Filter,
+  UserPlus, Mail, Lock, Phone, CreditCard
 } from 'lucide-react';
 
 // --- HELPER FUNCTIONS ---
@@ -22,6 +24,22 @@ const getGameDateTime = (isoString: string) => {
   };
 };
 
+const validateCPF = (cpf: string): boolean => {
+  // Simple structure check for prototype. 
+  // Real implementation would include the mod11 algorithm.
+  const cleanCPF = cpf.replace(/[^\d]+/g, '');
+  return cleanCPF.length === 11 && !/^(\d)\1+$/.test(cleanCPF);
+};
+
+const formatCPF = (value: string) => {
+  return value
+    .replace(/\D/g, '')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+    .replace(/(-\d{2})\d+?$/, '$1');
+};
+
 // --- COMPONENTS ---
 
 const AssetControl = ({ 
@@ -29,7 +47,7 @@ const AssetControl = ({
   onDecrease, 
   onIncrease, 
   icon: Icon, 
-  colorClass,
+  colorClass, 
   bgClass 
 }: { 
   value: number, 
@@ -60,6 +78,176 @@ const AssetControl = ({
      </div>
   </div>
 );
+
+// --- USER CREATOR COMPONENT ---
+const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: User) => void }) => {
+  const [name, setName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [role, setRole] = useState<Role>('user');
+
+  // Auto-generate email based on name
+  useEffect(() => {
+    if (name) {
+      const slug = name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+      if (slug) {
+        setEmail(`${slug}@gmail.com`);
+      }
+    }
+  }, [name]);
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCpf(formatCPF(e.target.value));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!name || !cpf || !password) {
+      alert("Por favor, preencha os campos obrigatórios (Nome, CPF, Senha).");
+      return;
+    }
+
+    if (!validateCPF(cpf)) {
+      alert("CPF inválido. Por favor verifique.");
+      return;
+    }
+
+    const newUser: User = {
+      id: `u-${Date.now()}`,
+      name,
+      cpf,
+      email,
+      password, // In real app, this should be hashed
+      phone,
+      role,
+      balance: 0,
+      inventory: { doubles: 0, superDoubles: 0 }
+    };
+
+    onSave(newUser);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg border-2 border-green-400 mb-8 p-6 animate-in slide-in-from-top-4">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <UserPlus className="text-green-500" /> Cadastrar Novo Usuário
+        </h3>
+        <button onClick={onCancel} className="text-slate-400 hover:text-slate-600">
+          <XCircle size={24} />
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Nome Completo */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Completo *</label>
+            <input 
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Ex: João da Silva"
+            />
+          </div>
+
+          {/* CPF */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">CPF *</label>
+            <div className="relative">
+              <CreditCard className="absolute left-3 top-2.5 text-slate-400" size={16} />
+              <input 
+                type="text"
+                value={cpf}
+                onChange={handleCpfChange}
+                className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-green-500 outline-none"
+                placeholder="000.000.000-00"
+                maxLength={14}
+              />
+            </div>
+          </div>
+
+          {/* Senha */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha *</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-2.5 text-slate-400" size={16} />
+              <input 
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-green-500 outline-none"
+                placeholder="******"
+              />
+            </div>
+          </div>
+
+          {/* Role */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Conta</label>
+            <select 
+              value={role}
+              onChange={e => setRole(e.target.value as Role)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none bg-white"
+            >
+              <option value="user">Usuário Padrão</option>
+              <option value="pro">Jogador PRO</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 my-4 pt-4">
+          <p className="text-xs font-bold text-slate-400 uppercase mb-3">Dados de Contato (Opcional)</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email (Automático)</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                <input 
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-green-500 outline-none bg-slate-50"
+                />
+              </div>
+            </div>
+
+            {/* Whatsapp */}
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">WhatsApp</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                <input 
+                  type="text"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-green-500 outline-none"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+           <button 
+             type="submit"
+             className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-green-600/20 transition-all active:scale-95 flex items-center gap-2"
+           >
+             <Save size={20} /> Salvar Usuário
+           </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 
 interface RoundEditorProps {
   roundData: Round;
@@ -250,6 +438,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [draftRound, setDraftRound] = useState<Round | null>(null);
 
+  // State for User Creation
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+
   // State for Log Filters
   const [logSearch, setLogSearch] = useState('');
   const [logTypeFilter, setLogTypeFilter] = useState<string>('all');
@@ -381,6 +572,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
   };
 
   // --- USER FUNCTIONS ---
+  
+  const handleCreateUser = (newUser: User) => {
+    setUsers(prev => [newUser, ...prev]);
+    setIsCreatingUser(false);
+    alert("Usuário criado com sucesso!");
+  };
 
   const handleUpdateUserRole = (userId: string, role: Role) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
@@ -537,80 +734,101 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
 
       {/* --- USERS TAB --- */}
       {activeTab === 'users' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-           <table className="w-full text-sm">
-             <thead>
-               <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                 <th className="text-left py-3 px-4 font-medium">Usuário</th>
-                 <th className="text-center py-3 px-4 font-medium">Role</th>
-                 <th className="text-left py-3 px-4 font-medium">Fichas</th>
-                 <th className="text-left py-3 px-4 font-medium">Duplas (2x)</th>
-                 <th className="text-left py-3 px-4 font-medium">Super (4x)</th>
-               </tr>
-             </thead>
-             <tbody className="divide-y divide-slate-100">
-               {users.map(user => (
-                 <tr key={user.id} className="hover:bg-slate-50/50">
-                   <td className="py-3 px-4">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-700">{user.name}</span>
-                        <span className="text-xs text-slate-400">{user.email}</span>
-                      </div>
-                   </td>
-                   <td className="py-3 px-4 text-center">
-                     <select 
-                       value={user.role}
-                       onChange={(e) => handleUpdateUserRole(user.id, e.target.value as Role)}
-                       className={`text-xs font-bold uppercase px-2 py-1 rounded border outline-none
-                         ${user.role === 'admin' ? 'bg-slate-800 text-white border-slate-900' :
-                           user.role === 'pro' ? 'bg-orange-100 text-orange-700 border-orange-200' :
-                           'bg-white text-slate-600 border-slate-200'}`}
-                     >
-                       <option value="user">USER</option>
-                       <option value="pro">PRO</option>
-                       <option value="admin">ADMIN</option>
-                     </select>
-                   </td>
-                   
-                   {/* Fichas Control */}
-                   <td className="py-3 px-4">
-                      <AssetControl 
-                        value={user.balance}
-                        icon={Coins}
-                        colorClass="text-yellow-600"
-                        bgClass="bg-yellow-50 border-yellow-100"
-                        onDecrease={() => handleUpdateAsset(user.id, 'balance', -10)}
-                        onIncrease={() => handleUpdateAsset(user.id, 'balance', 10)}
-                      />
-                   </td>
+        <div className="space-y-6">
+           {/* Create User Button */}
+           {!isCreatingUser && (
+             <button 
+               onClick={() => setIsCreatingUser(true)}
+               className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:bg-green-50 hover:border-green-200 hover:text-green-600 transition-colors flex items-center justify-center gap-2"
+             >
+               <UserPlus size={24} /> Cadastrar Novo Usuário
+             </button>
+           )}
 
-                   {/* Doubles Control */}
-                   <td className="py-3 px-4">
-                      <AssetControl 
-                        value={user.inventory?.doubles || 0}
-                        icon={Zap}
-                        colorClass="text-blue-600"
-                        bgClass="bg-blue-50 border-blue-100"
-                        onDecrease={() => handleUpdateAsset(user.id, 'doubles', -1)}
-                        onIncrease={() => handleUpdateAsset(user.id, 'doubles', 1)}
-                      />
-                   </td>
+           {/* Create User Form */}
+           {isCreatingUser && (
+             <UserCreator 
+               onCancel={() => setIsCreatingUser(false)}
+               onSave={handleCreateUser}
+             />
+           )}
 
-                   {/* Super Doubles Control */}
-                   <td className="py-3 px-4">
-                      <AssetControl 
-                        value={user.inventory?.superDoubles || 0}
-                        icon={Crown}
-                        colorClass="text-purple-600"
-                        bgClass="bg-purple-50 border-purple-100"
-                        onDecrease={() => handleUpdateAsset(user.id, 'superDoubles', -1)}
-                        onIncrease={() => handleUpdateAsset(user.id, 'superDoubles', 1)}
-                      />
-                   </td>
+           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+             <table className="w-full text-sm">
+               <thead>
+                 <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                   <th className="text-left py-3 px-4 font-medium">Usuário</th>
+                   <th className="text-center py-3 px-4 font-medium">Role</th>
+                   <th className="text-left py-3 px-4 font-medium">Fichas</th>
+                   <th className="text-left py-3 px-4 font-medium">Duplas (2x)</th>
+                   <th className="text-left py-3 px-4 font-medium">Super (4x)</th>
                  </tr>
-               ))}
-             </tbody>
-           </table>
+               </thead>
+               <tbody className="divide-y divide-slate-100">
+                 {users.map(user => (
+                   <tr key={user.id} className="hover:bg-slate-50/50">
+                     <td className="py-3 px-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-700">{user.name}</span>
+                          <span className="text-xs text-slate-400">{user.email}</span>
+                          {user.cpf && <span className="text-[10px] text-slate-400 mt-0.5 font-mono">CPF: {user.cpf}</span>}
+                        </div>
+                     </td>
+                     <td className="py-3 px-4 text-center">
+                       <select 
+                         value={user.role}
+                         onChange={(e) => handleUpdateUserRole(user.id, e.target.value as Role)}
+                         className={`text-xs font-bold uppercase px-2 py-1 rounded border outline-none
+                           ${user.role === 'admin' ? 'bg-slate-800 text-white border-slate-900' :
+                             user.role === 'pro' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                             'bg-white text-slate-600 border-slate-200'}`}
+                       >
+                         <option value="user">USER</option>
+                         <option value="pro">PRO</option>
+                         <option value="admin">ADMIN</option>
+                       </select>
+                     </td>
+                     
+                     {/* Fichas Control */}
+                     <td className="py-3 px-4">
+                        <AssetControl 
+                          value={user.balance}
+                          icon={Coins}
+                          colorClass="text-yellow-600"
+                          bgClass="bg-yellow-50 border-yellow-100"
+                          onDecrease={() => handleUpdateAsset(user.id, 'balance', -10)}
+                          onIncrease={() => handleUpdateAsset(user.id, 'balance', 10)}
+                        />
+                     </td>
+
+                     {/* Doubles Control */}
+                     <td className="py-3 px-4">
+                        <AssetControl 
+                          value={user.inventory?.doubles || 0}
+                          icon={Zap}
+                          colorClass="text-blue-600"
+                          bgClass="bg-blue-50 border-blue-100"
+                          onDecrease={() => handleUpdateAsset(user.id, 'doubles', -1)}
+                          onIncrease={() => handleUpdateAsset(user.id, 'doubles', 1)}
+                        />
+                     </td>
+
+                     {/* Super Doubles Control */}
+                     <td className="py-3 px-4">
+                        <AssetControl 
+                          value={user.inventory?.superDoubles || 0}
+                          icon={Crown}
+                          colorClass="text-purple-600"
+                          bgClass="bg-purple-50 border-purple-100"
+                          onDecrease={() => handleUpdateAsset(user.id, 'superDoubles', -1)}
+                          onIncrease={() => handleUpdateAsset(user.id, 'superDoubles', 1)}
+                        />
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
         </div>
       )}
 

@@ -22,6 +22,8 @@ export interface Game {
   date: string; // ISO UTC
   status: GameStatus;
   order: number;
+  scoreA?: number | null;
+  scoreB?: number | null;
 }
 
 export type RoundStatus = 'draft' | 'open' | 'closed' | 'settled';
@@ -73,4 +75,14 @@ export interface RankingEntry {
   points: number;
   position: number;
   isPro: boolean;
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  action: string;
+  details: string;
+  type: 'info' | 'success' | 'warning' | 'error';
 }

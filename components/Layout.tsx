@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '../types';
-import { LogOut, Coins, User as UserIcon, Menu, Beer, PlusCircle } from 'lucide-react';
+import { LogOut, Coins, User as UserIcon, Menu, Beer, PlusCircle, ShieldAlert } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,19 +19,34 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavi
       {/* Header */}
       <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-2 cursor-pointer group"
-            onClick={() => {
-              onNavigate('dashboard');
-              setIsMenuOpen(false); // Fix: Close menu when logo is clicked
-            }}
-          >
-            <div className="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center group-hover:bg-orange-600 transition-colors">
-              <span className="font-bold text-xl italic">F</span>
+          
+          <div className="flex items-center gap-4">
+            {/* Logo */}
+            <div 
+              className="flex items-center gap-2 cursor-pointer group"
+              onClick={() => {
+                onNavigate('dashboard');
+                setIsMenuOpen(false); // Fix: Close menu when logo is clicked
+              }}
+            >
+              <div className="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center group-hover:bg-orange-600 transition-colors">
+                <span className="font-bold text-xl italic">F</span>
+              </div>
+              <h1 className="text-xl font-bold tracking-tight group-hover:text-orange-100 transition-colors">
+                Fantasy<span className="text-orange-500">12</span>
+              </h1>
             </div>
-            <h1 className="text-xl font-bold tracking-tight group-hover:text-orange-100 transition-colors">
-              Fantasy<span className="text-orange-500">12</span>
-            </h1>
+
+            {/* Admin Panel Button - Next to Logo */}
+            {user?.role === 'admin' && (
+              <button 
+                onClick={() => onNavigate('admin')}
+                className="bg-slate-800 hover:bg-slate-700 text-orange-500 border border-orange-500/30 text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-md transition-all shadow-[0_0_10px_rgba(249,115,22,0.1)] flex items-center gap-1"
+              >
+                <ShieldAlert size={14} />
+                <span className="hidden sm:inline">PAINEL</span> ADMIN
+              </button>
+            )}
           </div>
 
           {/* Desktop Nav */}
@@ -51,14 +66,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavi
                 >
                   <Beer size={16} /> BAR
                 </button>
-                {user.role === 'admin' && (
-                  <button 
-                    onClick={() => onNavigate('admin')}
-                    className={`hover:text-orange-400 transition-colors ${currentPage === 'admin' ? 'text-orange-500' : 'text-slate-300'}`}
-                  >
-                    Admin
-                  </button>
-                )}
+                {/* Admin Link removed from here, moved next to logo */}
               </nav>
 
               <div className="h-6 w-px bg-slate-700 mx-2"></div>
@@ -71,8 +79,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavi
                     {user.balance.toFixed(0)}
                   </span>
                 </div>
-                
-                {/* Menu Icon for Desktop too, if they want specific actions there, or just keep it simple */}
                 
                 <div className="flex items-center gap-2">
                    {user.role === 'pro' && onCreatePool && (
@@ -125,11 +131,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onNavi
                </button>
             )}
 
-            {user.role === 'admin' && (
-              <button onClick={() => {onNavigate('admin'); setIsMenuOpen(false)}} className="block w-full text-left px-4 py-3 text-slate-300 hover:bg-slate-700 hover:text-white border-b border-slate-700/50">
-                Admin Panel
-              </button>
-            )}
+            {/* Admin Panel REMOVED from here as per instructions */}
 
             <div className="pt-2 px-4 pb-2 bg-slate-900/50">
                <div className="flex justify-between items-center py-2">

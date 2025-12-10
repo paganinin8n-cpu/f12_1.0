@@ -1,4 +1,4 @@
-import { Round, Game, User } from '../types';
+import { Round, Game, User, LogEntry } from '../types';
 
 export const MOCK_USER: User = {
   id: 'u1',
@@ -36,6 +36,28 @@ export const MOCK_ADMIN: User = {
   }
 };
 
+export const MOCK_ALL_USERS: User[] = [
+  MOCK_USER,
+  MOCK_PRO_USER,
+  MOCK_ADMIN,
+  {
+    id: 'u4',
+    name: 'Jorge Jesus',
+    email: 'mister@fantasy12.com',
+    role: 'pro',
+    balance: 1200,
+    inventory: { doubles: 10, superDoubles: 5 }
+  },
+  {
+    id: 'u5',
+    name: 'Abel Ferreira',
+    email: 'abel@fantasy12.com',
+    role: 'user',
+    balance: 50,
+    inventory: { doubles: 0, superDoubles: 0 }
+  }
+];
+
 // Helper to generate games for a round
 const generateGames = (roundId: string): Game[] => {
   const teams = [
@@ -52,7 +74,9 @@ const generateGames = (roundId: string): Game[] => {
     teamB: match[1],
     date: new Date(Date.now() + 86400000 * (index % 3 + 1)).toISOString(), // Future dates
     status: 'scheduled',
-    order: index + 1
+    order: index + 1,
+    scoreA: null,
+    scoreB: null
   }));
 };
 
@@ -73,6 +97,14 @@ export const MOCK_ROUNDS: Round[] = [
     status: 'draft',
     games: generateGames('r-2025-11')
   }
+];
+
+export const MOCK_LOGS: LogEntry[] = [
+  { id: 'l1', timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), userId: 'u1', userName: 'Demo User', action: 'Aposta Realizada', details: 'Rodada #10 - 12 Jogos', type: 'success' },
+  { id: 'l2', timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), userId: 'u2', userName: 'Pro Player', action: 'Compra Loja', details: 'Pacote 100 Fichas', type: 'info' },
+  { id: 'l3', timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(), userId: 'u5', userName: 'Abel Ferreira', action: 'Login', details: 'Acesso via Mobile', type: 'info' },
+  { id: 'l4', timestamp: new Date(Date.now() - 1000 * 60 * 200).toISOString(), userId: 'u3', userName: 'Admin', action: 'Edição Rodada', details: 'Atualizou placar Jogo 1', type: 'warning' },
+  { id: 'l5', timestamp: new Date(Date.now() - 1000 * 60 * 300).toISOString(), userId: 'u1', userName: 'Demo User', action: 'Erro Pagamento', details: 'Falha na transação Gateway', type: 'error' },
 ];
 
 export const getActiveRound = (): Round => MOCK_ROUNDS[0];

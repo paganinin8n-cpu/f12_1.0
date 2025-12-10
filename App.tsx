@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Layout } from './components/Layout';
 import { BettingPage } from './pages/BettingPage';
-import { User, Selection, Pool, RankingEntry, Round } from './types';
-import { getActiveRound, MOCK_USER, MOCK_PRO_USER, MOCK_ADMIN } from './services/mockData';
+import { AdminPage } from './pages/AdminPage'; // Import AdminPage
+import { User, Selection, Pool, RankingEntry, Round, LogEntry } from './types';
+import { MOCK_USER, MOCK_PRO_USER, MOCK_ADMIN, MOCK_ROUNDS, MOCK_ALL_USERS, MOCK_LOGS } from './services/mockData';
 import { 
   CheckCircle, Trophy, ArrowRight, Beer, Users, Crown, 
   Calendar, Zap, Coins, ShoppingBag, Search, X, 
@@ -207,68 +208,68 @@ const RankingModal = ({ data, title, onClose }: { data: RankingEntry[], title: s
   );
 };
 
-// 3. View Bet Modal (Read-only visual)
+// 3. View Bet Modal (Compact for Mobile)
 const ViewBetModal = ({ selections, round, onClose }: { selections: Selection[], round: Round, onClose: () => void }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-slate-50 rounded-2xl p-0 max-w-2xl w-full shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+      <div className="bg-slate-50 rounded-xl p-0 max-w-sm w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-slate-900 text-white p-4 border-b border-slate-800 flex justify-between items-center sticky top-0 z-10">
+        <div className="bg-slate-900 text-white p-3 border-b border-slate-800 flex justify-between items-center sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-2">
-            <ClipboardList className="text-orange-500" size={20} />
-            <h3 className="text-lg font-bold">Seu Palpite - {round.title}</h3>
+            <ClipboardList className="text-orange-500" size={18} />
+            <h3 className="text-base font-bold">Seu Palpite - {round.title}</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="overflow-y-auto p-4 space-y-3 flex-1">
+        {/* Content - Dense List */}
+        <div className="overflow-y-auto p-2 space-y-2 flex-1">
           {round.games.map(game => {
             const userSelection = selections.find(s => s.gameId === game.id);
-            if (!userSelection) return null; // Should not happen for a placed bet
+            if (!userSelection) return null;
 
             const outcomes = userSelection.outcome;
             const isDouble = userSelection.isDouble;
             const isSuper = userSelection.isSuperDouble;
 
             return (
-              <div key={game.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex justify-between items-center mb-3 border-b border-slate-50 pb-2">
-                   <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">JOGO {game.order}</span>
-                   <div className="flex gap-2">
-                      {isDouble && <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded flex items-center gap-1"><Zap size={10}/> DUPLA</span>}
-                      {isSuper && <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded flex items-center gap-1"><Crown size={10}/> SUPER</span>}
+              <div key={game.id} className="bg-white rounded-lg shadow-sm border border-slate-200 p-2 text-xs">
+                <div className="flex justify-between items-center mb-1.5 border-b border-slate-50 pb-1">
+                   <span className="text-[10px] font-bold text-slate-400 px-1">JOGO {game.order}</span>
+                   <div className="flex gap-1">
+                      {isDouble && <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Zap size={8}/> 2x</span>}
+                      {isSuper && <span className="text-[9px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-0.5"><Crown size={8}/> 4x</span>}
                    </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 items-center">
+                <div className="grid grid-cols-3 gap-1.5 items-center">
                   {/* Team A */}
-                  <div className={`p-3 rounded-lg text-center border-2 transition-colors relative
+                  <div className={`p-1.5 rounded text-center border transition-colors relative
                     ${outcomes.includes('A') 
                       ? 'bg-green-600 border-green-600 text-white shadow-sm' 
-                      : 'bg-slate-50 border-transparent text-slate-400'}`}>
-                    <span className="font-bold text-sm block leading-tight">{game.teamA}</span>
-                    {outcomes.includes('A') && <Check size={12} className="absolute top-1 right-1 text-white/80" />}
+                      : 'bg-slate-50 border-transparent text-slate-300'}`}>
+                    <span className="font-bold block leading-tight truncate">{game.teamA}</span>
+                    {outcomes.includes('A') && <Check size={10} className="absolute top-0.5 right-0.5 text-white/80" />}
                   </div>
 
                   {/* Draw */}
-                  <div className={`p-3 rounded-lg text-center border-2 transition-colors relative
+                  <div className={`p-1.5 rounded text-center border transition-colors relative
                     ${outcomes.includes('Draw') 
                       ? 'bg-green-600 border-green-600 text-white shadow-sm' 
-                      : 'bg-slate-50 border-transparent text-slate-400'}`}>
-                    <span className="font-bold text-sm block">Empate</span>
-                    {outcomes.includes('Draw') && <Check size={12} className="absolute top-1 right-1 text-white/80" />}
+                      : 'bg-slate-50 border-transparent text-slate-300'}`}>
+                    <span className="font-bold block">X</span>
+                    {outcomes.includes('Draw') && <Check size={10} className="absolute top-0.5 right-0.5 text-white/80" />}
                   </div>
 
                   {/* Team B */}
-                  <div className={`p-3 rounded-lg text-center border-2 transition-colors relative
+                  <div className={`p-1.5 rounded text-center border transition-colors relative
                     ${outcomes.includes('B') 
                       ? 'bg-green-600 border-green-600 text-white shadow-sm' 
-                      : 'bg-slate-50 border-transparent text-slate-400'}`}>
-                    <span className="font-bold text-sm block leading-tight">{game.teamB}</span>
-                    {outcomes.includes('B') && <Check size={12} className="absolute top-1 right-1 text-white/80" />}
+                      : 'bg-slate-50 border-transparent text-slate-300'}`}>
+                    <span className="font-bold block leading-tight truncate">{game.teamB}</span>
+                    {outcomes.includes('B') && <Check size={10} className="absolute top-0.5 right-0.5 text-white/80" />}
                   </div>
                 </div>
               </div>
@@ -466,7 +467,8 @@ const Dashboard = ({
   openPoolRanking,
   currentRankings,
   hasBet,
-  onOpenViewBet
+  onOpenViewBet,
+  activeRound
 }: { 
   user: User, 
   onNavigate: (p: string) => void,
@@ -476,14 +478,13 @@ const Dashboard = ({
   openPoolRanking: (pool: Pool) => void,
   currentRankings: { general: RankingEntry[], pro: RankingEntry[] },
   hasBet: boolean,
-  onOpenViewBet: () => void
+  onOpenViewBet: () => void,
+  activeRound: Round
 }) => {
   const [rankingTab, setRankingTab] = useState<'general' | 'pro'>('general');
   const [poolTab, setPoolTab] = useState<'my' | 'all'>('my');
   const [searchPool, setSearchPool] = useState('');
 
-  const activeRound = getActiveRound();
-  
   // Filter Rankings
   const displayedRankings = rankingTab === 'general' ? currentRankings.general : currentRankings.pro;
   const top5 = displayedRankings.slice(0, 5);
@@ -743,13 +744,6 @@ const Dashboard = ({
   );
 };
 
-const AdminPage = () => (
-  <div className="text-center py-12">
-    <h2 className="text-2xl font-bold text-slate-800">Painel do Administrador</h2>
-    <p className="text-slate-500 mt-2">Funcionalidades de gestão de rodadas e usuários virão aqui.</p>
-  </div>
-);
-
 // --- MAIN APP ---
 
 const App: React.FC = () => {
@@ -763,10 +757,18 @@ const App: React.FC = () => {
   const [lastBetSelections, setLastBetSelections] = useState<Selection[]>([]);
   const [showViewBetModal, setShowViewBetModal] = useState(false);
   
+  // Global State for Admin & App (Initialized from Mocks)
+  const [allRounds, setAllRounds] = useState<Round[]>(MOCK_ROUNDS);
+  const [allUsers, setAllUsers] = useState<User[]>(MOCK_ALL_USERS);
+  const [logs] = useState<LogEntry[]>(MOCK_LOGS); // Mock Logs State
+
   // Rankings State
   const [rankings] = useState(() => generateMockRankings(user ? user.id : 'u1'));
   const [rankingModalType, setRankingModalType] = useState<'general' | 'pro' | 'pool' | null>(null);
   const [selectedPoolRanking, setSelectedPoolRanking] = useState<{title: string, data: RankingEntry[]} | null>(null);
+
+  // Derived state for active round
+  const activeRound = allRounds[0];
 
   // Actions
   const handleLogin = (role: 'user' | 'pro' | 'admin') => {
@@ -943,12 +945,13 @@ const App: React.FC = () => {
            currentRankings={rankings}
            hasBet={hasPlacedBet}
            onOpenViewBet={() => setShowViewBetModal(true)}
+           activeRound={activeRound}
         />
       )}
       
       {currentPage === 'betting' && (
         <BettingPage 
-          round={getActiveRound()} 
+          round={activeRound} // Use dynamic active round state
           user={user}
           onSubmitBet={handleSubmitBet}
         />
@@ -959,7 +962,13 @@ const App: React.FC = () => {
       )}
 
       {currentPage === 'admin' && (
-        <AdminPage />
+        <AdminPage 
+          rounds={allRounds}
+          setRounds={setAllRounds}
+          users={allUsers}
+          setUsers={setAllUsers}
+          logs={logs}
+        />
       )}
 
       {/* Modals */}
@@ -993,7 +1002,7 @@ const App: React.FC = () => {
       {showViewBetModal && lastBetSelections.length > 0 && (
          <ViewBetModal 
             selections={lastBetSelections}
-            round={getActiveRound()}
+            round={activeRound}
             onClose={() => setShowViewBetModal(false)}
          />
       )}

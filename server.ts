@@ -37,7 +37,7 @@ const formatUser = (user: any) => {
       doubles: user.doubles || 0,
       superDoubles: user.superDoubles || 0
     },
-    // Removemos os campos planos para não confundir, se quiser
+    // Removemos os campos planos para não confundir o frontend
     doubles: undefined,
     superDoubles: undefined
   };
@@ -138,7 +138,6 @@ app.put('/api/users/:id', async (req, res) => {
 
 app.get('/api/rounds', async (req, res) => {
   try {
-    // Buscar rodadas e seus jogos
     const rounds = await prisma.round.findMany({
       include: { 
         games: {
@@ -147,9 +146,6 @@ app.get('/api/rounds', async (req, res) => {
       },
       orderBy: { startDate: 'asc' }
     });
-    
-    // Mapear campos snake_case do banco para camelCase do front se necessário
-    // Prisma já faz isso se usarmos @map no schema, mas garantindo aqui
     res.json(rounds);
   } catch (error) {
     console.error("Get rounds error:", error);
@@ -192,23 +188,14 @@ app.put('/api/rounds/:id', async (req, res) => {
   const { title, startDate, endDate, status, games } = req.body;
 
   try {
-    // Atualiza dados básicos da rodada
     const round = await prisma.round.update({
       where: { id },
-      data: {
-        title,
-        startDate,
-        endDate,
-        status
-      }
+      data: { title, startDate, endDate, status }
     });
 
-    // Atualiza jogos individualmente
-    // Em produção, isso deveria ser uma transaction ou upsert
     if (games && Array.isArray(games)) {
       for (const game of games) {
         if (game.id.startsWith('g-new-')) {
-            // Criar novo jogo se ID for temporário
             await prisma.game.create({
                 data: {
                     roundId: id,
@@ -222,7 +209,6 @@ app.put('/api/rounds/:id', async (req, res) => {
                 }
             });
         } else {
-            // Atualizar jogo existente
             await prisma.game.update({
                 where: { id: game.id },
                 data: {
@@ -238,7 +224,6 @@ app.put('/api/rounds/:id', async (req, res) => {
       }
     }
 
-    // Retorna a rodada atualizada com jogos
     const updatedRound = await prisma.round.findUnique({
       where: { id },
       include: { games: { orderBy: { order: 'asc' } } }
@@ -278,7 +263,6 @@ app.post('/api/pools', async (req, res) => {
   const { title, entryFee, creatorId, startDate, endDate, description } = req.body;
   
   try {
-    // Buscar nome do criador
     const creator = await prisma.user.findUnique({ where: { id: creatorId } });
     
     const pool = await prisma.pool.create({
@@ -287,7 +271,7 @@ app.post('/api/pools', async (req, res) => {
         creatorName: creator?.name || 'Admin',
         entryFee,
         participantsCount: 1,
-        prizePool: entryFee, // Inicial
+        prizePool: entryFee,
         status: 'open',
         startDate,
         endDate,
@@ -297,12 +281,10 @@ app.post('/api/pools', async (req, res) => {
             userId: creatorId,
             paid: true
           }
-        }
+        },
+        creatorId: creatorId
       }
     });
-
-    // Debitar valor da entrada se necessário (lógica simplificada)
-    // Em produção, criaríamos Transaction
 
     const formattedPool = {
         ...pool,
@@ -321,7 +303,6 @@ app.post('/api/pools/:id/join', async (req, res) => {
   const { userId } = req.body;
 
   try {
-    // Verificar se já participa
     const existing = await prisma.poolParticipant.findUnique({
         where: {
             poolId_userId: {
@@ -335,7 +316,6 @@ app.post('/api/pools/:id/join', async (req, res) => {
         return res.status(400).json({ error: "Usuário já participa deste bolão" });
     }
 
-    // Adicionar participante
     await prisma.poolParticipant.create({
         data: {
             poolId: id,
@@ -344,7 +324,6 @@ app.post('/api/pools/:id/join', async (req, res) => {
         }
     });
 
-    // Atualizar contadores do bolão
     const pool = await prisma.pool.findUnique({ where: { id } });
     if (pool) {
         await prisma.pool.update({
@@ -356,7 +335,6 @@ app.post('/api/pools/:id/join', async (req, res) => {
         });
     }
 
-    // Retornar bolão atualizado
     const updatedPool = await prisma.pool.findUnique({
         where: { id },
         include: { participants: true }
@@ -381,9 +359,17 @@ app.get('/api/logs', async (req, res) => {
   try {
     const logs = await prisma.log.findMany({
       orderBy: { timestamp: 'desc' },
-      take: 100
+      take: 100,
+      include: { user: { select: { name: true } } } // Join para pegar nome atual
     });
-    res.json(logs);
+    
+    // Mapear para garantir userName correto
+    const formattedLogs = logs.map(log => ({
+        ...log,
+        userName: log.user?.name || log.userName
+    }));
+
+    res.json(formattedLogs);
   } catch (error) {
     console.error("Get logs error:", error);
     res.status(500).json({ error: "Erro ao buscar logs" });
@@ -406,7 +392,6 @@ app.post('/api/logs', async (req, res) => {
     res.json(log);
   } catch (error) {
     console.error("Create log error:", error);
-    // Não retornar 500 para não quebrar fluxo principal se log falhar
     res.json({ success: false }); 
   }
 });
@@ -417,7 +402,6 @@ app.post('/api/payments/process', async (req, res) => {
   const { userId, packageType, priceCents, fichasAdded } = req.body;
 
   try {
-    // 1. Registrar Compra
     const purchase = await prisma.purchase.create({
       data: {
         userId,
@@ -428,7 +412,6 @@ app.post('/api/payments/process', async (req, res) => {
       }
     });
 
-    // 2. Criar Transação de Crédito
     await prisma.transaction.create({
       data: {
         userId,
@@ -439,7 +422,6 @@ app.post('/api/payments/process', async (req, res) => {
       }
     });
 
-    // 3. Atualizar Saldo do Usuário
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -447,7 +429,7 @@ app.post('/api/payments/process', async (req, res) => {
       }
     });
 
-    // 4. Log do Sistema
+    // Log automático
     await prisma.log.create({
       data: {
         userId: user.id,
@@ -468,13 +450,10 @@ app.post('/api/payments/process', async (req, res) => {
 
 // Mock Stripe Webhook
 app.post('/api/payments/stripe', async (req, res) => {
-  // Em produção, verificar assinatura do Stripe aqui
   console.log("Stripe Webhook received:", req.body);
   res.json({ received: true });
 });
 
-
-// Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

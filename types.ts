@@ -21,7 +21,7 @@ export type GameStatus = 'scheduled' | 'live' | 'finished' | 'cancelled';
 
 export interface Game {
   id: string;
-  rodadaId: string;
+  roundId: string; // Changed from rodadaId
   teamA: string;
   teamB: string;
   date: string; // ISO UTC
@@ -72,6 +72,7 @@ export interface Pool {
   status: 'open' | 'closed';
   startDate?: string;
   endDate?: string;
+  description?: string;
 }
 
 export interface RankingEntry {
@@ -90,4 +91,32 @@ export interface LogEntry {
   action: string;
   details: string;
   type: 'info' | 'success' | 'warning' | 'error';
+}
+
+// Payment & Transaction Types
+export interface Purchase {
+  id: string;
+  userId: string;
+  packageType: string;
+  priceCents: number;
+  fichasAdded: number;
+  status: 'PENDING' | 'CONFIRMED' | 'FAILED';
+  createdAt: string;
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  type: 'PURCHASE' | 'BET_DEBIT' | 'BONUS_CONSUME' | 'REFUND' | 'BOLAO_ENTRY';
+  fichasAmount: number;
+  referenceId?: string;
+  status: 'PENDING' | 'CONFIRMED' | 'FAILED';
+  createdAt: string;
+}
+
+// System Visual Config
+export interface SystemConfig {
+    bannerTitle: string;
+    bannerSubtitle: string;
+    bannerButtonText: string;
 }

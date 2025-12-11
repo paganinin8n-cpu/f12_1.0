@@ -1,22 +1,37 @@
-import { User, Round, Pool, LogEntry, Game } from '../types';
+import { User, Round, Pool, LogEntry } from '../types';
 
-const API_URL = 'http://localhost:3001/api';
+// Configuração da URL da API
+const meta = import.meta as any;
+const env = (meta && meta.env) || {};
+const API_URL = env.VITE_API_URL || 'http://localhost:3001/api';
 
-// Helper genérico para requisições
+console.log('API Client configurado para:', API_URL);
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    ...options,
-  });
+  const url = `${API_URL}${endpoint}`;
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      ...options,
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erro na requisição: ${response.statusText}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Erro na requisição (${response.status}): ${response.statusText}`);
+    }
+
+    if (response.status === 204) {
+      return {} as T;
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error(`API Error [${endpoint}]:`, error);
+    throw error;
   }
-
-  return response.json();
 }
 
 export const api = {
@@ -58,18 +73,12 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
-  
-  // Note: Backend server.ts needs a PUT /rounds/:id route for this to work fully.
-  // Using POST for creation is defined, but editing needs backend support.
-  // For now, Admin uses this to save edits if supported.
+
   updateRound: (id: string, data: Partial<Round>): Promise<Round> => {
-     // Fallback: In a full implementation, you'd have PUT /rounds/:id
-     // For now, we might reuse POST or assuming logic in backend.
-     // We will stick to the provided server routes structure where possible.
-     return request<Round>(`/rounds/${id}`, { // Requires backend update
-        method: 'PUT', 
-        body: JSON.stringify(data) 
-     });
+    return request<Round>(`/rounds/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 
   // --- POOLS ---
@@ -96,10 +105,21 @@ export const api = {
     return request<LogEntry[]>('/logs');
   },
 
-  createLog: (log: Partial<LogEntry>): Promise<void> => {
+  createLog: (data: Partial<LogEntry>): Promise<void> => {
     return request<void>('/logs', {
       method: 'POST',
-      body: JSON.stringify(log),
+      body: JSON.stringify({
+        ...data,
+        timestamp: new Date().toISOString()
+      }),
+    });
+  },
+
+  // --- PAYMENTS ---
+  processPayment: (data: { userId: string, packageType: string, priceCents: number, fichasAdded: number }): Promise<User> => {
+    return request<User>('/payments/process', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 };

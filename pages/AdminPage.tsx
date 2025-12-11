@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Round, User, Game, GameStatus, RoundStatus, Role, LogEntry } from '../types';
+import { api } from '../services/api'; // Import API Client
 import { 
   Users, Calendar, Save, Plus, 
   Coins, Zap, Crown, Minus, Edit3, XCircle, ScrollText, Search, Filter,
@@ -25,8 +26,6 @@ const getGameDateTime = (isoString: string) => {
 };
 
 const validateCPF = (cpf: string): boolean => {
-  // Simple structure check for prototype. 
-  // Real implementation would include the mod11 algorithm.
   const cleanCPF = cpf.replace(/[^\d]+/g, '');
   return cleanCPF.length === 11 && !/^(\d)\1+$/.test(cleanCPF);
 };
@@ -88,7 +87,6 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<Role>('user');
 
-  // Auto-generate email based on name
   useEffect(() => {
     if (name) {
       const slug = name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
@@ -116,11 +114,11 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
     }
 
     const newUser: User = {
-      id: `u-${Date.now()}`,
+      id: `u-new`, // ID assigned by backend
       name,
       cpf,
       email,
-      password, // In real app, this should be hashed
+      password,
       phone,
       role,
       balance: 0,
@@ -143,7 +141,6 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Nome Completo */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Completo *</label>
             <input 
@@ -154,8 +151,6 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
               placeholder="Ex: João da Silva"
             />
           </div>
-
-          {/* CPF */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">CPF *</label>
             <div className="relative">
@@ -170,8 +165,6 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
               />
             </div>
           </div>
-
-          {/* Senha */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Senha *</label>
             <div className="relative">
@@ -185,8 +178,6 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
               />
             </div>
           </div>
-
-          {/* Role */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Conta</label>
             <select 
@@ -204,7 +195,6 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
         <div className="border-t border-slate-100 my-4 pt-4">
           <p className="text-xs font-bold text-slate-400 uppercase mb-3">Dados de Contato (Opcional)</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Email */}
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email (Automático)</label>
               <div className="relative">
@@ -217,8 +207,6 @@ const UserCreator = ({ onCancel, onSave }: { onCancel: () => void, onSave: (u: U
                 />
               </div>
             </div>
-
-            {/* Whatsapp */}
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">WhatsApp</label>
               <div className="relative">
@@ -428,7 +416,7 @@ interface AdminPageProps {
   setRounds: React.Dispatch<React.SetStateAction<Round[]>>;
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
-  logs: LogEntry[]; // Added logs prop
+  logs: LogEntry[];
 }
 
 export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, setUsers, logs }) => {
@@ -445,18 +433,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
   const [logSearch, setLogSearch] = useState('');
   const [logTypeFilter, setLogTypeFilter] = useState<string>('all');
 
-  // --- HELPER: Generate Empty Round ---
+  // Helper: Generate Empty Round
   const generateEmptyRound = (): Round => {
     const id = `r-${Date.now()}`;
     return {
       id,
-      title: '', // Empty title for user to fill
+      title: '', 
       startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // +7 days default
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       status: 'draft',
       games: Array.from({ length: 12 }).map((_, i) => ({
-        id: `g-${id}-${i}`,
-        rodadaId: id,
+        id: `g-new-${Date.now()}-${i}`, // Temporary ID
+        roundId: id, // Updated from rodadaId
         teamA: '',
         teamB: '',
         date: new Date().toISOString(),
@@ -478,11 +466,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
 
   const handleStartEditing = (round: Round) => {
     if (editingRoundId === round.id) {
-      // Cancel/Collapse
       setEditingRoundId(null);
       setDraftRound(null);
     } else {
-      // Expand and Create Draft (Deep Copy)
       setEditingRoundId(round.id);
       setDraftRound(JSON.parse(JSON.stringify(round)));
     }
@@ -504,7 +490,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
     setDraftRound({ ...draftRound, games: updatedGames });
   };
 
-  // Special handler to manage Date and Time splitting from ISO string
   const handleDraftGameDateChange = (gameId: string, type: 'date' | 'time', value: string) => {
     if (!draftRound) return;
 
@@ -514,19 +499,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
       const currentIso = g.date;
       let newDateObj = new Date(currentIso);
       
-      // If invalid date, default to now
-      if (isNaN(newDateObj.getTime())) {
-          newDateObj = new Date();
-      }
+      if (isNaN(newDateObj.getTime())) newDateObj = new Date();
 
       if (type === 'date') {
-          // value is YYYY-MM-DD
           const [year, month, day] = value.split('-').map(Number);
           newDateObj.setFullYear(year);
           newDateObj.setMonth(month - 1);
           newDateObj.setDate(day);
       } else {
-          // value is HH:mm
           const [hours, minutes] = value.split(':').map(Number);
           newDateObj.setHours(hours);
           newDateObj.setMinutes(minutes);
@@ -538,10 +518,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
     setDraftRound({ ...draftRound, games: updatedGames });
   }
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (!draftRound) return;
 
-    // Validation
     if (!draftRound.title.trim()) {
         alert("Por favor, insira um nome para a rodada.");
         return;
@@ -552,17 +531,26 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
         : "Deseja salvar todas as alterações desta rodada?";
 
     if (window.confirm(confirmMsg)) {
-      if (editingRoundId === 'new') {
-         // Create Mode: Add to beginning of list
-         setRounds(prev => [draftRound, ...prev]);
-         alert("Nova rodada criada com sucesso!");
-      } else {
-         // Edit Mode: Update existing
-         setRounds(prev => prev.map(r => r.id === draftRound.id ? draftRound : r));
-         alert("Rodada atualizada com sucesso!");
+      try {
+          let savedRound: Round;
+          
+          if (editingRoundId === 'new') {
+             // API Call to Create
+             savedRound = await api.createRound(draftRound);
+             setRounds(prev => [savedRound, ...prev]);
+             alert("Nova rodada criada com sucesso!");
+          } else {
+             // API Call to Update
+             savedRound = await api.updateRound(draftRound.id, draftRound);
+             setRounds(prev => prev.map(r => r.id === savedRound.id ? savedRound : r));
+             alert("Rodada atualizada com sucesso!");
+          }
+          setEditingRoundId(null);
+          setDraftRound(null);
+      } catch (error) {
+          console.error(error);
+          alert("Erro ao salvar rodada. Verifique o console.");
       }
-      setEditingRoundId(null);
-      setDraftRound(null);
     }
   };
 
@@ -573,37 +561,49 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
 
   // --- USER FUNCTIONS ---
   
-  const handleCreateUser = (newUser: User) => {
-    setUsers(prev => [newUser, ...prev]);
-    setIsCreatingUser(false);
-    alert("Usuário criado com sucesso!");
+  const handleCreateUser = async (newUser: User) => {
+    try {
+        const created = await api.register(newUser); // Reuse register for creation by admin
+        setUsers(prev => [created, ...prev]);
+        setIsCreatingUser(false);
+        alert("Usuário criado com sucesso!");
+    } catch (e) {
+        alert("Erro ao criar usuário.");
+    }
   };
 
-  const handleUpdateUserRole = (userId: string, role: Role) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
+  const handleUpdateUserRole = async (userId: string, role: Role) => {
+    try {
+        const updated = await api.updateUser(userId, { role });
+        setUsers(prev => prev.map(u => u.id === userId ? updated : u));
+    } catch (e) {
+        alert("Erro ao atualizar permissão.");
+    }
   };
 
-  const handleUpdateAsset = (userId: string, type: 'balance' | 'doubles' | 'superDoubles', amount: number) => {
-    setUsers(prev => prev.map(u => {
-      if (u.id !== userId) return u;
-      
-      if (type === 'balance') {
-        const newBalance = Math.max(0, u.balance + amount);
-        return { ...u, balance: newBalance };
-      } else {
-        // Handle inventory items
-        const currentQty = u.inventory?.[type] || 0;
+  const handleUpdateAsset = async (userId: string, type: 'balance' | 'doubles' | 'superDoubles', amount: number) => {
+    // We need to calculate new values based on current state to send to API
+    const currentUser = users.find(u => u.id === userId);
+    if (!currentUser) return;
+
+    let updateData: any = {};
+    if (type === 'balance') {
+        updateData.balance = Math.max(0, currentUser.balance + amount);
+    } else {
+        const currentQty = currentUser.inventory?.[type] || 0;
         const newQty = Math.max(0, currentQty + amount);
-        
-        return {
-          ...u,
-          inventory: {
-            ...u.inventory,
+        updateData.inventory = {
+            ...currentUser.inventory,
             [type]: newQty
-          }
         };
-      }
-    }));
+    }
+
+    try {
+        const updated = await api.updateUser(userId, updateData);
+        setUsers(prev => prev.map(u => u.id === userId ? updated : u));
+    } catch (e) {
+        alert("Erro ao atualizar saldo/estoque.");
+    }
   };
 
   // --- LOG FILTER LOGIC ---
@@ -649,7 +649,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
       {activeTab === 'rounds' && (
         <div className="space-y-6">
           
-          {/* Action to Create New Round */}
           {!editingRoundId && (
               <button 
                   onClick={handleCreateRound}
@@ -659,7 +658,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
               </button>
           )}
 
-          {/* New Round Editor (Active) */}
           {editingRoundId === 'new' && draftRound && (
               <RoundEditor 
                 roundData={draftRound} 
@@ -672,11 +670,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
               />
           )}
 
-          {/* List of Existing Rounds */}
           {rounds.map(round => {
             const isEditing = editingRoundId === round.id;
             
-            // If we are editing THIS round, show the Editor Component
             if (isEditing && draftRound) {
                 return (
                   <RoundEditor 
@@ -692,7 +688,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
                 );
             }
 
-            // Otherwise, show the Summary Card
             return (
               <div key={round.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md">
                 <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -718,7 +713,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
                     
                     <button 
                       onClick={() => handleStartEditing(round)}
-                      disabled={editingRoundId === 'new'} // Disable if creating new
+                      disabled={editingRoundId === 'new'}
                       className={`p-2 rounded-lg border transition-colors flex items-center gap-2 text-sm font-bold bg-white border-slate-200 hover:bg-orange-50 hover:text-orange-600
                         ${editingRoundId === 'new' ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
@@ -735,7 +730,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
       {/* --- USERS TAB --- */}
       {activeTab === 'users' && (
         <div className="space-y-6">
-           {/* Create User Button */}
            {!isCreatingUser && (
              <button 
                onClick={() => setIsCreatingUser(true)}
@@ -745,7 +739,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
              </button>
            )}
 
-           {/* Create User Form */}
            {isCreatingUser && (
              <UserCreator 
                onCancel={() => setIsCreatingUser(false)}
@@ -789,7 +782,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
                        </select>
                      </td>
                      
-                     {/* Fichas Control */}
                      <td className="py-3 px-4">
                         <AssetControl 
                           value={user.balance}
@@ -801,7 +793,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
                         />
                      </td>
 
-                     {/* Doubles Control */}
                      <td className="py-3 px-4">
                         <AssetControl 
                           value={user.inventory?.doubles || 0}
@@ -813,7 +804,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ rounds, setRounds, users, 
                         />
                      </td>
 
-                     {/* Super Doubles Control */}
                      <td className="py-3 px-4">
                         <AssetControl 
                           value={user.inventory?.superDoubles || 0}

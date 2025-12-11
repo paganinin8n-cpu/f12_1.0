@@ -1,14 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Layout } from './components/Layout';
 import { BettingPage } from './pages/BettingPage';
 import { AdminPage } from './pages/AdminPage';
 import { User, Selection, Pool, RankingEntry, Round, LogEntry } from './types';
-import { MOCK_USER, MOCK_PRO_USER, MOCK_ADMIN, MOCK_ROUNDS, MOCK_ALL_USERS, MOCK_LOGS } from './services/mockData';
+import { api } from './services/api';
+import { MOCK_ROUNDS, MOCK_POOLS, MOCK_ALL_USERS, MOCK_LOGS } from './services/mockData';
 import { 
-  CheckCircle, Trophy, ArrowRight, Beer, Users, Crown, 
-  Calendar, Zap, Coins, ShoppingBag, Search, X, 
-  ClipboardList, PlayCircle, PlusCircle, Star, Check, Eye,
-  UserPlus, ArrowLeft, CreditCard, Lock, Phone, Mail, User as UserIcon, Globe, Save
+  Trophy, ArrowRight, Beer, Users, Crown, 
+  ClipboardList, PlusCircle, Star, Eye,
+  UserPlus, ArrowLeft, CreditCard, Lock, Phone, Mail, User as UserIcon, Search,
+  Zap, Coins, ShoppingBag
 } from 'lucide-react';
 
 // --- HELPERS ---
@@ -26,64 +27,8 @@ const validateCPF = (cpf: string): boolean => {
   return cleanCPF.length === 11 && !/^(\d)\1+$/.test(cleanCPF);
 };
 
-// --- MOCK DATA GENERATORS ---
-
-const generateMockRankings = (currentUserId: string): { general: RankingEntry[], pro: RankingEntry[] } => {
-  const general: RankingEntry[] = [];
-  // Generate top 50 random users
-  for (let i = 1; i <= 50; i++) {
-    general.push({
-      userId: `u-${i}`,
-      userName: `Treinador ${i}`,
-      points: Math.floor(1500 - (i * 15) + (Math.random() * 10)),
-      position: i,
-      isPro: i % 4 === 0
-    });
-  }
-
-  // Ensure current user is somewhere (e.g., pos 18)
-  const userPos = 18;
-  const existingUserIndex = general.findIndex(r => r.position === userPos);
-  if (existingUserIndex !== -1) {
-      general[existingUserIndex] = {
-        userId: currentUserId,
-        userName: 'Você',
-        points: 1250,
-        position: userPos,
-        isPro: false
-      };
-  } else {
-       general.push({
-        userId: currentUserId,
-        userName: 'Você',
-        points: 1250,
-        position: userPos,
-        isPro: false
-      });
-  }
-
-  // Sort just in case
-  general.sort((a, b) => b.points - a.points);
-  general.forEach((r, i) => r.position = i + 1);
-
-  // Filter Pro
-  const pro = general.filter(r => r.isPro || (r.userId === currentUserId && r.isPro));
-  // Re-rank pro
-  pro.sort((a, b) => b.points - a.points);
-  pro.forEach((r, i) => r.position = i + 1);
-
-  return { general, pro };
-};
-
-const MOCK_POOLS: Pool[] = [
-  { id: 'p1', title: 'Bolão da Firma', creatorName: 'Chefe', entryFee: 10, participantsCount: 12, participants: ['u1'], prizePool: 120, status: 'open', startDate: '2025-10-20', endDate: '2025-11-20' },
-  { id: 'p2', title: 'Elite do Futebol', creatorName: 'Pro Player', entryFee: 50, participantsCount: 5, participants: [], prizePool: 250, status: 'open', startDate: '2025-10-21', endDate: '2025-11-21' },
-  { id: 'p3', title: 'Amigos do Churrasco', creatorName: 'Zezinho', entryFee: 5, participantsCount: 20, participants: [], prizePool: 100, status: 'open', startDate: '2025-10-22', endDate: '2025-11-22' },
-];
-
 // --- COMPONENTS ---
 
-// Profile Page Component
 const ProfilePage = ({ user, onSave, onCancel }: { user: User, onSave: (u: User) => void, onCancel: () => void }) => {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -188,7 +133,7 @@ const ProfilePage = ({ user, onSave, onCancel }: { user: User, onSave: (u: User)
             type="submit"
             className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow-lg transition-colors flex items-center gap-2"
           >
-            <Save size={18} /> Salvar Alterações
+            <ArrowRight size={18} /> Salvar Alterações
           </button>
         </div>
       </form>
@@ -196,7 +141,6 @@ const ProfilePage = ({ user, onSave, onCancel }: { user: User, onSave: (u: User)
   );
 };
 
-// 1. Create Pool Modal
 const CreatePoolModal = ({ onClose, onSave, currentUser }: { onClose: () => void, onSave: (pool: Pool) => void, currentUser: User }) => {
   const [title, setTitle] = useState('');
   const [fee, setFee] = useState('');
@@ -207,7 +151,7 @@ const CreatePoolModal = ({ onClose, onSave, currentUser }: { onClose: () => void
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newPool: Pool = {
-      id: `p-${Date.now()}`,
+      id: `p-new`, 
       title: title || 'Novo Bolão',
       creatorName: currentUser.name,
       entryFee: Number(fee) || 0,
@@ -230,7 +174,7 @@ const CreatePoolModal = ({ onClose, onSave, currentUser }: { onClose: () => void
             <PlusCircle className="text-orange-500" /> Criar Bolão
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <X size={24} />
+            <ArrowLeft size={24} className="rotate-180" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -299,7 +243,6 @@ const CreatePoolModal = ({ onClose, onSave, currentUser }: { onClose: () => void
   );
 };
 
-// 2. Ranking Modal (Top 30)
 const RankingModal = ({ data, title, onClose }: { data: RankingEntry[], title: string, onClose: () => void }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -310,7 +253,7 @@ const RankingModal = ({ data, title, onClose }: { data: RankingEntry[], title: s
             {title}
           </h3>
           <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full">
-            <X size={20} className="text-slate-500" />
+            <ArrowLeft size={20} className="rotate-180 text-slate-500" />
           </button>
         </div>
         <div className="overflow-y-auto p-4 space-y-2 flex-1">
@@ -337,23 +280,20 @@ const RankingModal = ({ data, title, onClose }: { data: RankingEntry[], title: s
   );
 };
 
-// 3. View Bet Modal (Compact for Mobile)
 const ViewBetModal = ({ selections, round, onClose }: { selections: Selection[], round: Round, onClose: () => void }) => {
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-slate-50 rounded-xl p-0 max-w-sm w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
         <div className="bg-slate-900 text-white p-3 border-b border-slate-800 flex justify-between items-center sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-2">
             <ClipboardList className="text-orange-500" size={18} />
             <h3 className="text-base font-bold">Seu Palpite - {round.title}</h3>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
-            <X size={20} />
+            <ArrowLeft size={20} className="rotate-180" />
           </button>
         </div>
 
-        {/* Content - Dense List */}
         <div className="overflow-y-auto p-2 space-y-2 flex-1">
           {round.games.map(game => {
             const userSelection = selections.find(s => s.gameId === game.id);
@@ -374,31 +314,25 @@ const ViewBetModal = ({ selections, round, onClose }: { selections: Selection[],
                 </div>
 
                 <div className="grid grid-cols-3 gap-1.5 items-center">
-                  {/* Team A */}
                   <div className={`p-1.5 rounded text-center border transition-colors relative
                     ${outcomes.includes('A') 
                       ? 'bg-green-600 border-green-600 text-white shadow-sm' 
                       : 'bg-slate-50 border-transparent text-slate-300'}`}>
                     <span className="font-bold block leading-tight truncate">{game.teamA}</span>
-                    {outcomes.includes('A') && <Check size={10} className="absolute top-0.5 right-0.5 text-white/80" />}
                   </div>
 
-                  {/* Draw */}
                   <div className={`p-1.5 rounded text-center border transition-colors relative
                     ${outcomes.includes('Draw') 
                       ? 'bg-green-600 border-green-600 text-white shadow-sm' 
                       : 'bg-slate-50 border-transparent text-slate-300'}`}>
                     <span className="font-bold block">X</span>
-                    {outcomes.includes('Draw') && <Check size={10} className="absolute top-0.5 right-0.5 text-white/80" />}
                   </div>
 
-                  {/* Team B */}
                   <div className={`p-1.5 rounded text-center border transition-colors relative
                     ${outcomes.includes('B') 
                       ? 'bg-green-600 border-green-600 text-white shadow-sm' 
                       : 'bg-slate-50 border-transparent text-slate-300'}`}>
                     <span className="font-bold block leading-tight truncate">{game.teamB}</span>
-                    {outcomes.includes('B') && <Check size={10} className="absolute top-0.5 right-0.5 text-white/80" />}
                   </div>
                 </div>
               </div>
@@ -410,7 +344,6 @@ const ViewBetModal = ({ selections, round, onClose }: { selections: Selection[],
   );
 };
 
-// 4. Bar Page (Menu Style)
 const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' | 'fichas' | 'powerup', rewardKey?: string, rewardAmount?: number) => void }) => {
   return (
     <div className="max-w-4xl mx-auto animate-in fade-in duration-500">
@@ -425,7 +358,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Section 1: Fichas (Cashier) */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden relative">
           <div className="bg-slate-900 p-4 flex items-center gap-2">
             <div className="bg-yellow-500 p-2 rounded-lg text-slate-900">
@@ -438,7 +370,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
           </div>
           
           <div className="p-6 space-y-4 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
-             {/* R$ 5 */}
              <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-xl hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                    <div className="w-12 h-12 rounded-full bg-yellow-200 flex items-center justify-center text-yellow-700 font-bold text-lg border-4 border-white shadow-sm">
@@ -454,7 +385,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
                 </button>
              </div>
 
-             {/* R$ 10 */}
              <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-xl hover:shadow-md transition-shadow relative overflow-hidden">
                 <div className="absolute -right-4 -top-4 bg-red-500 text-white text-[10px] font-bold px-6 py-1 rotate-45">POPULAR</div>
                 <div className="flex items-center gap-3">
@@ -471,7 +401,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
                 </button>
              </div>
 
-             {/* R$ 50 */}
              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-100 to-yellow-50 border border-yellow-300 rounded-xl hover:shadow-lg transition-shadow">
                 <div className="flex items-center gap-3">
                    <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-yellow-900 font-bold text-xl border-4 border-white shadow-sm">
@@ -489,7 +418,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
           </div>
         </div>
 
-        {/* Section 2: Power Ups (Menu) */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
            <div className="bg-orange-600 p-4 flex items-center gap-2">
             <div className="bg-white/20 p-2 rounded-lg text-white">
@@ -505,7 +433,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
              <div className="mb-6">
                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 pb-1">Duplas (2x Pontos)</h4>
                 <div className="space-y-3">
-                   {/* 1 Dupla */}
                    <div className="flex justify-between items-center group cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors">
                       <div className="flex items-center gap-3">
                          <span className="font-serif font-bold text-slate-800 text-lg group-hover:text-orange-600">1x</span>
@@ -518,7 +445,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
                          </button>
                       </div>
                    </div>
-                   {/* 3 Duplas */}
                    <div className="flex justify-between items-center group cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors border border-dashed border-slate-200">
                       <div className="flex items-center gap-3">
                          <span className="font-serif font-bold text-slate-800 text-lg group-hover:text-orange-600">3x</span>
@@ -531,7 +457,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
                          </button>
                       </div>
                    </div>
-                   {/* 10 Duplas */}
                    <div className="flex justify-between items-center group cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors border border-dashed border-slate-200">
                       <div className="flex items-center gap-3">
                          <span className="font-serif font-bold text-slate-800 text-lg group-hover:text-orange-600">10x</span>
@@ -550,7 +475,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
              <div>
                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 pb-1">Super Duplas (4x Pontos)</h4>
                 <div className="space-y-3">
-                   {/* 1 Super */}
                    <div className="flex justify-between items-center group cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors">
                       <div className="flex items-center gap-3">
                          <span className="font-serif font-bold text-slate-800 text-lg group-hover:text-purple-600">1x</span>
@@ -563,7 +487,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
                          </button>
                       </div>
                    </div>
-                   {/* 4 Super */}
                    <div className="flex justify-between items-center group cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors border border-dashed border-slate-200">
                       <div className="flex items-center gap-3">
                          <span className="font-serif font-bold text-slate-800 text-lg group-hover:text-purple-600">4x</span>
@@ -586,7 +509,6 @@ const BarPage = ({ onBuy }: { onBuy: (item: string, cost: number, type: 'chips' 
   );
 };
 
-// 5. Dashboard (Updated with Rankings, Pools and View Bet)
 const Dashboard = ({ 
   user, 
   onNavigate, 
@@ -608,19 +530,17 @@ const Dashboard = ({
   currentRankings: { general: RankingEntry[], pro: RankingEntry[] },
   hasBet: boolean,
   onOpenViewBet: () => void,
-  activeRound: Round
+  activeRound: Round | null
 }) => {
   const [rankingTab, setRankingTab] = useState<'general' | 'pro'>('general');
   const [poolTab, setPoolTab] = useState<'my' | 'all'>('my');
   const [searchPool, setSearchPool] = useState('');
 
-  // Filter Rankings
   const displayedRankings = rankingTab === 'general' ? currentRankings.general : currentRankings.pro;
   const top5 = displayedRankings.slice(0, 5);
   const userRankEntry = displayedRankings.find(r => r.userId === user.id);
   const isUserInTop5 = userRankEntry && userRankEntry.position <= 5;
 
-  // Filter Pools
   const myPools = pools.filter(p => p.participants.includes(user.id) || p.creatorName === user.name); 
   const availablePools = pools.filter(p => !p.participants.includes(user.id) && p.creatorName !== user.name);
   
@@ -629,9 +549,7 @@ const Dashboard = ({
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       
-      {/* 1. Welcome Banner (Fun/Boteco Style) */}
       <div className="bg-gradient-to-r from-slate-950 to-slate-900 rounded-3xl p-6 md:p-10 text-white shadow-2xl relative overflow-hidden border-2 border-orange-500/20">
-        {/* Background Patterns */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl -ml-10 -mb-10"></div>
         
@@ -645,7 +563,7 @@ const Dashboard = ({
                 Fala, <span className="text-orange-500">Professor!</span> 🍺
              </h2>
              <p className="text-slate-200 text-lg md:text-xl font-medium leading-relaxed">
-                A <span className="text-orange-400 font-bold">{activeRound.title}</span> já começou e a galera no bar tá dizendo que você não acerta nem jogo treino.
+                A <span className="text-orange-400 font-bold">{activeRound?.title || 'Rodada'}</span> já começou e a galera no bar tá dizendo que você não acerta nem jogo treino.
              </p>
              <p className="text-slate-400 mt-2 text-sm">
                 Vai deixar barato ou vai analisar e mostrar quem manda?
@@ -662,12 +580,10 @@ const Dashboard = ({
                   : 'bg-orange-600 text-white shadow-[0_4px_0_rgb(124,45,18)] active:shadow-none active:translate-y-1 hover:bg-orange-500'
                 }`}
             >
-              {/* Custom F12 Logo Icon */}
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold italic text-xs border-2 
                 ${hasBet ? 'bg-orange-100 border-orange-500 text-orange-600' : 'bg-white text-orange-600 border-transparent'}`}>
                 F12
               </div>
-
               {hasBet ? 'PEDIDO FEITO' : 'BORA MISTER!'}
             </button>
 
@@ -684,7 +600,6 @@ const Dashboard = ({
         </div>
       </div>
 
-      {/* 2. Rankings Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -728,7 +643,6 @@ const Dashboard = ({
                    </tr>
                 ))}
                 
-                {/* User Pinned Row if not in top 5 */}
                 {!isUserInTop5 && userRankEntry && (
                   <>
                     <tr>
@@ -754,13 +668,11 @@ const Dashboard = ({
         </div>
       </div>
 
-      {/* CTA to Bar */}
       <div className="py-2">
         <button
           onClick={() => onNavigate('bar')}
           className="w-full relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-600 to-orange-500 p-6 text-white shadow-xl shadow-orange-500/20 group hover:shadow-orange-500/40 transition-all duration-300 hover:-translate-y-1"
         >
-          {/* Decorative Elements */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 transform group-hover:scale-150 transition-transform duration-700"></div>
           
           <div className="relative z-10 flex items-center justify-between">
@@ -780,7 +692,6 @@ const Dashboard = ({
         </button>
       </div>
 
-      {/* 3. Pools Section (Bolões) */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
@@ -818,7 +729,6 @@ const Dashboard = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
            {poolTab === 'my' ? (
               user.role !== 'pro' ? (
-                // Locked State for non-PRO users
                 <div className="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-8 text-center flex flex-col items-center">
                     <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
                         <Lock size={32} className="text-yellow-600" />
@@ -876,7 +786,6 @@ const Dashboard = ({
                           <span className="flex items-center gap-1"><Trophy size={14} className="text-yellow-500"/> {pool.prizePool}</span>
                        </div>
                        <div className="flex gap-2">
-                           {/* Button 1: Ranking (Open for all) */}
                            <button 
                                onClick={() => openPoolRanking(pool)}
                                className="flex-1 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
@@ -884,7 +793,6 @@ const Dashboard = ({
                                Ranking
                            </button>
 
-                           {/* Button 2: Entrar (Restricted to PRO) */}
                            <button 
                               onClick={() => joinPool(pool.id)} 
                               disabled={user.role !== 'pro'}
@@ -912,47 +820,44 @@ const Dashboard = ({
   );
 };
 
-// --- MAIN APP ---
-
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState('login');
+  const [user, setUser] = useState<User | null>(null);
   
-  // Persisted State Initialization
-  const [allUsers, setAllUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('fantasy12_users');
-    return saved ? JSON.parse(saved) : MOCK_ALL_USERS;
-  });
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allRounds, setAllRounds] = useState<Round[]>([]);
+  const [pools, setPools] = useState<Pool[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
-  const [allRounds, setAllRounds] = useState<Round[]>(() => {
-    const saved = localStorage.getItem('fantasy12_rounds');
-    return saved ? JSON.parse(saved) : MOCK_ROUNDS;
-  });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [usersData, roundsData, poolsData, logsData] = await Promise.all([
+          api.getUsers(),
+          api.getRounds(),
+          api.getPools(),
+          api.getLogs()
+        ]);
+        setAllUsers(usersData);
+        setAllRounds(roundsData);
+        setPools(poolsData);
+        setLogs(logsData);
+      } catch (error) {
+        console.warn("API Offline or connection refused. Loading MOCK DATA for safety.");
+        setAllUsers(MOCK_ALL_USERS);
+        setAllRounds(MOCK_ROUNDS);
+        setPools(MOCK_POOLS);
+        setLogs(MOCK_LOGS);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const [pools, setPools] = useState<Pool[]>(() => {
-    const saved = localStorage.getItem('fantasy12_pools');
-    return saved ? JSON.parse(saved) : MOCK_POOLS;
-  });
-
-  const [logs, setLogs] = useState<LogEntry[]>(() => {
-    const saved = localStorage.getItem('fantasy12_logs');
-    return saved ? JSON.parse(saved) : MOCK_LOGS;
-  });
-
-  const [user, setUser] = useState<User | null>(null); 
-  
-  // Save State on Change
-  useEffect(() => localStorage.setItem('fantasy12_users', JSON.stringify(allUsers)), [allUsers]);
-  useEffect(() => localStorage.setItem('fantasy12_rounds', JSON.stringify(allRounds)), [allRounds]);
-  useEffect(() => localStorage.setItem('fantasy12_pools', JSON.stringify(pools)), [pools]);
-  useEffect(() => localStorage.setItem('fantasy12_logs', JSON.stringify(logs)), [logs]);
-
-  // App UI State
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [hasPlacedBet, setHasPlacedBet] = useState(false);
   const [lastBetSelections, setLastBetSelections] = useState<Selection[]>([]);
   const [showViewBetModal, setShowViewBetModal] = useState(false);
   
-  // Registration State
   const [isRegistering, setIsRegistering] = useState(false);
   const [regName, setRegName] = useState('');
   const [regCpf, setRegCpf] = useState('');
@@ -961,7 +866,6 @@ const App: React.FC = () => {
   const [regEmail, setRegEmail] = useState('');
   const [isEmailManual, setIsEmailManual] = useState(false);
 
-  // Auto-generate email based on name
   useEffect(() => {
     if (!isEmailManual && regName) {
       const slug = regName.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
@@ -971,21 +875,27 @@ const App: React.FC = () => {
     }
   }, [regName, isEmailManual]);
 
-  const addLog = (action: string, details: string, type: 'info' | 'success' | 'warning' | 'error', userId: string, userName: string) => {
-    const newLog: LogEntry = {
-        id: `l-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        userId,
-        userName,
-        action,
-        details,
-        type
-    };
-    setLogs(prev => [newLog, ...prev]);
+  const refreshData = async () => {
+      try {
+          const [u, r, p, l] = await Promise.all([
+              api.getUsers(),
+              api.getRounds(),
+              api.getPools(),
+              api.getLogs()
+          ]);
+          setAllUsers(u);
+          setAllRounds(r);
+          setPools(p);
+          setLogs(l);
+          
+          if (user) {
+              const updatedMe = u.find((x: User) => x.id === user.id);
+              if (updatedMe) setUser(updatedMe);
+          }
+      } catch (e) { console.error(e); }
   };
 
   const handleGoogleLogin = () => {
-     // Simulate API call to Google
      setTimeout(() => {
         const mockGoogleName = "Usuário Google";
         const mockGoogleEmail = "usuario.google@gmail.com";
@@ -996,21 +906,44 @@ const App: React.FC = () => {
      }, 500);
   }
 
-  // Rankings State
-  const [rankings] = useState(() => generateMockRankings(user ? user.id : 'u1'));
+  const mockRankings = useMemo(() => {
+      const currentId = user ? user.id : 'guest';
+      const general: RankingEntry[] = [];
+      for (let i = 1; i <= 50; i++) {
+        general.push({
+          userId: `u-${i}`,
+          userName: `Treinador ${i}`,
+          points: Math.floor(1500 - (i * 15) + (Math.random() * 10)),
+          position: i,
+          isPro: i % 4 === 0
+        });
+      }
+      general.push({ userId: currentId, userName: 'Você', points: 1250, position: 18, isPro: user?.role === 'pro' });
+      general.sort((a,b) => b.points - a.points);
+      general.forEach((r, i) => r.position = i + 1);
+
+      const pro = general.filter(r => r.isPro || r.userId === currentId);
+      pro.forEach((r, i) => r.position = i + 1);
+      
+      return { general, pro };
+  }, [user]);
+
   const [rankingModalType, setRankingModalType] = useState<'general' | 'pro' | 'pool' | null>(null);
   const [selectedPoolRanking, setSelectedPoolRanking] = useState<{title: string, data: RankingEntry[]} | null>(null);
 
-  // Derived state for active round
   const activeRound = allRounds[0];
 
-  // Actions
-  const handleLogin = (role: 'user' | 'pro' | 'admin') => {
-    if (role === 'admin') setUser(MOCK_ADMIN);
-    else if (role === 'pro') setUser(MOCK_PRO_USER);
-    else setUser(MOCK_USER);
-    setCurrentPage('dashboard');
-    addLog('Login', `Usuário ${role} logou`, 'info', 'unknown', role);
+  const handleLogin = async (role: 'user' | 'pro' | 'admin') => {
+    const demoUser = allUsers.find(u => u.role === role);
+    if (demoUser) {
+        setUser(demoUser);
+        setCurrentPage('dashboard');
+        api.createLog({ action: 'Login', details: `Usuário ${role} logou`, type: 'info', userId: demoUser.id, userName: demoUser.name })
+           .catch(() => {});
+    } else {
+        alert(`Nenhum usuário com permissão ${role} encontrado. Crie uma conta primeiro.`);
+        setCurrentPage('login');
+    }
   };
 
   const handleLogout = () => {
@@ -1021,7 +954,7 @@ const App: React.FC = () => {
     setIsRegistering(false);
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName || !regCpf || !regPassword) {
       alert("Por favor preencha Nome, CPF e Senha.");
@@ -1032,40 +965,53 @@ const App: React.FC = () => {
       return;
     }
 
-    const newUser: User = {
-      id: `u-${Date.now()}`,
-      name: regName,
-      email: regEmail,
-      role: 'user',
-      balance: 0, // Rules state they must buy chips or use daily bonus
-      inventory: { doubles: 0, superDoubles: 0 },
-      cpf: regCpf,
-      phone: regPhone,
-      password: regPassword
-    };
-
-    setAllUsers(prev => [...prev, newUser]);
-    setUser(newUser);
-    addLog('Cadastro', 'Novo usuário registrado', 'success', newUser.id, newUser.name);
-    setCurrentPage('dashboard');
-    setIsRegistering(false);
-    alert("Conta criada com sucesso! Bem-vindo ao Fantasy12.");
+    try {
+        const newUser = await api.register({
+            name: regName,
+            email: regEmail,
+            cpf: regCpf,
+            password: regPassword,
+            phone: regPhone,
+            role: 'user'
+        });
+        
+        setUser(newUser);
+        setAllUsers([...allUsers, newUser]);
+        await api.createLog({ action: 'Cadastro', details: 'Novo usuário registrado', type: 'success', userId: newUser.id, userName: newUser.name });
+        
+        setCurrentPage('dashboard');
+        setIsRegistering(false);
+        alert("Conta criada com sucesso! Bem-vindo ao Fantasy12.");
+    } catch (err: any) {
+        alert(err.message || "Erro ao criar conta");
+    }
   };
 
-  const handleUpdateProfile = (updatedUser: User) => {
-     setAllUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-     setUser(updatedUser);
-     addLog('Perfil', 'Usuário atualizou dados', 'info', updatedUser.id, updatedUser.name);
-     alert("Perfil atualizado com sucesso!");
-     setCurrentPage('dashboard');
+  const handleUpdateProfile = async (updatedUser: User) => {
+     try {
+         const result = await api.updateUser(updatedUser.id, updatedUser);
+         setUser(result);
+         setAllUsers(allUsers.map(u => u.id === result.id ? result : u));
+         await api.createLog({ action: 'Perfil', details: 'Usuário atualizou dados', type: 'info', userId: result.id, userName: result.name });
+         alert("Perfil atualizado com sucesso!");
+         setCurrentPage('dashboard');
+     } catch (err) {
+         alert("Erro ao atualizar perfil");
+     }
   };
 
-  const handleCreatePool = (newPool: Pool) => {
-    setPools([...pools, newPool]);
-    if (user) addLog('Criar Bolão', `Bolão "${newPool.title}" criado`, 'success', user.id, user.name);
+  const handleCreatePool = async (newPool: Pool) => {
+    if (!user) return;
+    try {
+        const created = await api.createPool({ ...newPool, creatorId: user.id });
+        setPools([...pools, created]);
+        await api.createLog({ action: 'Criar Bolão', details: `Bolão "${created.title}" criado`, type: 'success', userId: user.id, userName: user.name });
+    } catch (err) {
+        alert("Erro ao criar bolão");
+    }
   };
 
-  const handleJoinPool = (poolId: string) => {
+  const handleJoinPool = async (poolId: string) => {
     if (!user) return;
 
     if (user.role !== 'pro') {
@@ -1073,71 +1019,30 @@ const App: React.FC = () => {
        return;
     }
 
-    const pool = pools.find(p => p.id === poolId);
-    if (!pool) return;
-
-    if (pool.participants.includes(user.id)) {
-        alert("Você já está neste bolão.");
-        return;
+    try {
+        await api.joinPool(poolId, user.id);
+        await refreshData();
+        await api.createLog({ action: 'Entrar Bolão', details: `Entrou no bolão ID ${poolId}`, type: 'success', userId: user.id, userName: user.name });
+        alert(`Você entrou no bolão com sucesso!`);
+    } catch (err: any) {
+        alert(err.message || "Erro ao entrar no bolão");
     }
-
-    if (user.balance < pool.entryFee) {
-       alert("Saldo insuficiente para entrar neste bolão. Vá ao Bar comprar fichas!");
-       return;
-    }
-
-    // Deduct balance and add to pool
-    const updatedUser = { ...user, balance: user.balance - pool.entryFee };
-    setUser(updatedUser);
-    
-    // Update Global User State too
-    setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
-
-    setPools(pools.map(p => {
-       if (p.id === poolId) {
-          return { 
-             ...p, 
-             participants: [...p.participants, user.id],
-             participantsCount: p.participantsCount + 1,
-             prizePool: p.prizePool + pool.entryFee
-          };
-       }
-       return p;
-    }));
-    
-    addLog('Entrar Bolão', `Entrou no bolão "${pool.title}"`, 'success', user.id, user.name);
-    alert(`Você entrou no bolão "${pool.title}" com sucesso!`);
   };
 
   const handleOpenPoolRanking = (pool: Pool) => {
-      // Mock generating a ranking for this pool based on participants
       const poolRankings: RankingEntry[] = [];
-      const participants = pool.participants.length > 0 ? pool.participants : ['u1', 'u2', 'u3']; // Fallback for mock
+      const participants = pool.participants.length > 0 ? pool.participants : ['u1', 'u2'];
 
       participants.forEach((pid, index) => {
           poolRankings.push({
               userId: pid,
-              userName: pid === user?.id ? 'Você' : `Participante ${index + 1}`,
+              userName: `Participante ${index + 1}`, 
               points: Math.floor(100 + Math.random() * 50),
               position: index + 1,
               isPro: false
           });
       });
       
-      // Ensure User is in if participating
-      if (pool.participants.includes(user?.id || '')) {
-          const uEntry = poolRankings.find(r => r.userId === user?.id);
-          if (!uEntry) {
-              poolRankings.push({
-                  userId: user!.id,
-                  userName: 'Você',
-                  points: 120,
-                  position: 1,
-                  isPro: user!.role === 'pro'
-              });
-          }
-      }
-
       poolRankings.sort((a,b) => b.points - a.points);
       poolRankings.forEach((r, i) => r.position = i + 1);
 
@@ -1148,47 +1053,71 @@ const App: React.FC = () => {
       setRankingModalType('pool');
   }
 
-  const handleBuy = (item: string, cost: number, type: 'chips' | 'fichas' | 'powerup', rewardKey?: string, rewardAmount?: number) => {
-    alert(`Simulação: Você comprou ${item} por ${type === 'fichas' ? 'R$' : ''} ${cost} ${type !== 'fichas' ? 'Fichas' : ''}.`);
+  const handleBuy = async (item: string, cost: number, type: 'chips' | 'fichas' | 'powerup', rewardKey?: string, rewardAmount?: number) => {
+    if (!user) return;
     
-    if (user) {
-        let updatedUser = { ...user };
+    // Determine how many chips to add if buying chips
+    let fichasAdded = 0;
+    if (type === 'fichas') {
+         fichasAdded = item === '10 Fichas' ? 10 : item === '20 Fichas' ? 20 : 100;
+    }
+
+    // Call API for processing payment (which updates DB)
+    try {
+        // We only simulate payment processing for now
+        // For PowerUps (buying with chips), we'd need a different endpoint or handle it in updateUser logic as before
+        // But requested was "processPayment" API
         
         if (type === 'fichas') {
-             const addedChips = item === '10 Fichas' ? 10 : item === '20 Fichas' ? 20 : 100;
-             updatedUser.balance += addedChips;
-             addLog('Compra Fichas', `Comprou ${addedChips} fichas`, 'info', user.id, user.name);
-        } else if (type === 'powerup' && rewardKey && rewardAmount) {
-             // Deduct cost
-             if (updatedUser.balance < cost) {
+             const updatedUser = await api.processPayment({
+                 userId: user.id,
+                 packageType: item,
+                 priceCents: cost * 100, // Convert to cents
+                 fichasAdded: fichasAdded
+             });
+             setUser(updatedUser);
+             setAllUsers(allUsers.map(u => u.id === user.id ? updatedUser : u));
+             alert(`Compra de ${item} realizada com sucesso!`);
+        } else {
+             // Logic for buying powerups with chips (Client-side validation first)
+             if (user.balance < cost) {
                  alert("Saldo insuficiente!");
                  return;
              }
-             updatedUser.balance -= cost;
              
-             // Add to inventory
+             let newInventory = { ...user.inventory };
              if (rewardKey === 'doubles') {
-                 updatedUser.inventory.doubles += rewardAmount;
+                 newInventory.doubles += (rewardAmount || 0);
              } else if (rewardKey === 'superDoubles') {
-                 updatedUser.inventory.superDoubles += rewardAmount;
+                 newInventory.superDoubles += (rewardAmount || 0);
              }
-             addLog('Compra PowerUp', `Comprou ${rewardAmount} ${rewardKey}`, 'info', user.id, user.name);
+
+             const updatedUser = await api.updateUser(user.id, {
+                 balance: user.balance - cost,
+                 inventory: newInventory
+             });
+             setUser(updatedUser);
+             setAllUsers(allUsers.map(u => u.id === user.id ? updatedUser : u));
+             alert(`Você trocou ${cost} fichas por ${item}!`);
+             await api.createLog({ action: 'Troca', details: `Trocou fichas por ${item}`, type: 'info', userId: user.id, userName: user.name });
         }
-        
-        setUser(updatedUser);
-        setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+    } catch (err) {
+        console.error(err);
+        alert("Erro ao processar transação.");
     }
   };
 
-  const handleSubmitBet = (selections: Selection[], cost: number) => {
+  const handleSubmitBet = async (selections: Selection[], cost: number) => {
     alert(`Aposta enviada! Custo: ${cost} fichas.`);
-    if (user) addLog('Aposta', `Realizou aposta na rodada ${activeRound.title}`, 'success', user.id, user.name);
+    if (user) {
+        await api.createLog({ action: 'Aposta', details: `Realizou aposta na rodada ${activeRound.title}`, type: 'success', userId: user.id, userName: user.name }).catch(() => {});
+    }
     setLastBetSelections(selections);
     setHasPlacedBet(true);
     setCurrentPage('dashboard');
   };
 
-  if (!user) {
+  if (currentPage === 'login' && !user) {
     if (isRegistering) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 animate-in fade-in zoom-in duration-300">
@@ -1208,14 +1137,12 @@ const App: React.FC = () => {
                 <p className="text-slate-500 text-sm">Preencha os dados para começar a apostar.</p>
               </div>
 
-              {/* Google Sign In Simulation */}
               <div className="mb-6">
                  <button 
                     onClick={handleGoogleLogin}
                     className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
                  >
                     <div className="w-5 h-5">
-                       {/* Simple Google G SVG representation */}
                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -1379,7 +1306,7 @@ const App: React.FC = () => {
       onCreatePool={() => setShowCreatePool(true)}
       onProfileClick={() => setCurrentPage('profile')}
     >
-      {currentPage === 'dashboard' && (
+      {currentPage === 'dashboard' && user && activeRound && (
         <Dashboard 
            user={user} 
            onNavigate={setCurrentPage}
@@ -1387,16 +1314,16 @@ const App: React.FC = () => {
            joinPool={handleJoinPool}
            openRankingModal={setRankingModalType}
            openPoolRanking={handleOpenPoolRanking}
-           currentRankings={rankings}
+           currentRankings={mockRankings}
            hasBet={hasPlacedBet}
            onOpenViewBet={() => setShowViewBetModal(true)}
            activeRound={activeRound}
         />
       )}
       
-      {currentPage === 'betting' && (
+      {currentPage === 'betting' && user && activeRound && (
         <BettingPage 
-          round={activeRound} // Use dynamic active round state
+          round={activeRound} 
           user={user}
           onSubmitBet={handleSubmitBet}
         />
@@ -1424,8 +1351,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Modals */}
-      {showCreatePool && (
+      {showCreatePool && user && (
         <CreatePoolModal 
            currentUser={user} 
            onClose={() => setShowCreatePool(false)} 
@@ -1441,8 +1367,8 @@ const App: React.FC = () => {
                 selectedPoolRanking?.title || 'Classificação'
             }
             data={
-                rankingModalType === 'general' ? rankings.general : 
-                rankingModalType === 'pro' ? rankings.pro :
+                rankingModalType === 'general' ? mockRankings.general : 
+                rankingModalType === 'pro' ? mockRankings.pro :
                 selectedPoolRanking?.data || []
             }
             onClose={() => {
@@ -1452,7 +1378,7 @@ const App: React.FC = () => {
          />
       )}
 
-      {showViewBetModal && lastBetSelections.length > 0 && (
+      {showViewBetModal && lastBetSelections.length > 0 && activeRound && (
          <ViewBetModal 
             selections={lastBetSelections}
             round={activeRound}

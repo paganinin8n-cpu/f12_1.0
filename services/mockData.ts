@@ -1,5 +1,5 @@
 
-import { Round, Game, User, LogEntry } from '../types';
+import { Round, Game, User, LogEntry, Pool } from '../types';
 
 export const MOCK_USER: User = {
   id: 'u1',
@@ -75,7 +75,7 @@ const generateGames = (roundId: string): Game[] => {
 
   return teams.map((match, index) => ({
     id: `g-${roundId}-${index}`,
-    rodadaId: roundId,
+    roundId: roundId, // Updated from rodadaId
     teamA: match[0],
     teamB: match[1],
     date: new Date(Date.now() + 86400000 * (index % 3 + 1)).toISOString(), // Future dates
@@ -102,6 +102,33 @@ export const MOCK_ROUNDS: Round[] = [
     endDate: new Date(Date.now() + 86400000 * 12).toISOString(),
     status: 'draft',
     games: generateGames('r-2025-11')
+  }
+];
+
+export const MOCK_POOLS: Pool[] = [
+  {
+    id: 'p1',
+    title: 'Bolão da Firma',
+    creatorName: 'Admin',
+    entryFee: 10,
+    participantsCount: 5,
+    participants: ['u1', 'u2', 'u3'],
+    prizePool: 50,
+    status: 'open',
+    startDate: new Date().toISOString(),
+    endDate: new Date(Date.now() + 86400000 * 5).toISOString(),
+  },
+  {
+    id: 'p2',
+    title: 'Liga dos Campeões',
+    creatorName: 'Pro Player',
+    entryFee: 20,
+    participantsCount: 12,
+    participants: ['u2'],
+    prizePool: 240,
+    status: 'open',
+    startDate: new Date().toISOString(),
+    endDate: new Date(Date.now() + 86400000 * 7).toISOString(),
   }
 ];
 

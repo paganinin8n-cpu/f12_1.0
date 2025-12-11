@@ -1,0 +1,269 @@
+// Schema do Prisma para Fantasy12
+// Banco de dados: PostgreSQL
+// Estrutura baseada na introspecção do banco de dados existente do usuário.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MODEL: USER (Mapeado para a tabela 'users')
+// ============================================
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  cpf           String   @unique
+  password      String
+  phone         String?
+  role          String   @default("user")
+  balance       Float    @default(0)
+  doubles       Int      @default(0)
+  superDoubles  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relações
+  logs          Log[]
+  transactions  Transaction[]
+  purchases     Purchase[]
+  pools         Pool[]
+  participants  PoolParticipant[]
+  bonusInventory BonusInventory[]
+  tickets       Ticket[]
+  
+  @@map("users")
+}
+
+// ============================================
+// MODEL: ROUND (Mapeado para a tabela 'rounds')
+// ============================================
+model Round {
+  id        String   @id @default(uuid())
+  title     String
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("draft") // draft, active, completed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  games     Game[]
+  
+  @@map("rounds")
+}
+
+// ============================================
+// MODEL: GAME (Mapeado para a tabela 'games')
+// ============================================
+model Game {
+  id        String   @id @default(uuid())
+  roundId   String
+  teamA     String
+  teamB     String
+  date      DateTime
+  status    String   @default("scheduled") // scheduled, live, finished
+  order     Int
+  scoreA    Int?
+  scoreB    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relações
+  round     Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  
+  @@map("games")
+}
+
+// ============================================
+// MODEL: POOL (Mapeado para a tabela 'boloes')
+// ============================================
+model Pool {
+  id                String   @id @default(uuid())
+  title             String
+  creatorId         String
+  creatorName       String
+  entryFee          Float
+  participantsCount Int      @default(0)
+  prizePool         Float    @default(0)
+  status            String   @default("open") // open, closed, finished
+  startDate         DateTime
+  endDate           DateTime
+  description       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relações
+  creator           User     @relation(fields: [creatorId], references: [id])
+  participants      PoolParticipant[]
+  
+  @@map("boloes")
+}
+
+// ============================================
+// MODEL: POOL PARTICIPANT (Mapeado para a tabela 'bolao_participants')
+// ============================================
+model PoolParticipant {
+  id        String   @id @default(uuid())
+  poolId    String
+  userId    String
+  paid      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  // Relações
+  pool      Pool     @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Constraint: Um usuário pode participar de um bolão apenas uma vez
+  @@unique([poolId, userId])
+  @@map("bolao_participants")
+}
+
+// ============================================
+// MODEL: LOG (Mapeado para a tabela 'audit_logs')
+// ============================================
+model Log {
+  id        String   @id @default(uuid())
+  userId    String
+  userName  String
+  action    String
+  details   String?
+  type      String   // success, error, warning, info
+  timestamp DateTime @default(now())
+  
+  // Relações
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("audit_logs")
+}
+
+// ============================================
+// MODEL: TRANSACTION (Mapeado para a tabela 'transactions')
+// ============================================
+model Transaction {
+  id            String   @id @default(uuid())
+  userId        String
+  type          String   // PURCHASE, TRANSFER, REFUND, etc
+  fichasAmount  Float
+  referenceId   String?
+  status        String   // PENDING, CONFIRMED, FAILED
+  createdAt     DateTime @default(now())
+  
+  // Relações
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("transactions")
+}
+
+// ============================================
+// MODEL: PURCHASE (Mapeado para a tabela 'purchases')
+// ============================================
+model Purchase {
+  id           String   @id @default(uuid())
+  userId       String
+  packageType  String
+  priceCents   Int
+  fichasAdded  Float
+  status       String
+  createdAt    DateTime @default(now())
+  
+  // Relações
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("purchases")
+}
+
+// ============================================
+// MODELOS ADICIONAIS (Inferenciais)
+// ============================================
+
+// Mapeado para a tabela 'bonus_inventory'
+model BonusInventory {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  amount    Int
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("bonus_inventory")
+}
+
+// Mapeado para a tabela 'idempotency_keys'
+model IdempotencyKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  lockedAt  DateTime @default(now())
+  
+  @@map("idempotency_keys")
+}
+
+// Mapeado para a tabela 'processed_events'
+model ProcessedEvent {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  processedAt DateTime @default(now())
+  
+  @@map("processed_events")
+}
+
+// Mapeado para a tabela 'tickets'
+model Ticket {
+  id        String   @id @default(uuid())
+  userId    String
+  roundId   String
+  status    String
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selections TicketSelection[]
+  settlements TicketSettlement[]
+  
+  @@map("tickets")
+}
+
+// Mapeado para a tabela 'ticket_selections'
+model TicketSelection {
+  id        String   @id @default(uuid())
+  ticketId  String
+  gameId    String
+  selection String
+  createdAt DateTime @default(now())
+  
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  @@map("ticket_selections")
+}
+
+// Mapeado para a tabela 'ticket_settlements'
+model TicketSettlement {
+  id        String   @id @default(uuid())
+  ticketId  String
+  status    String
+  amount    Float
+  createdAt DateTime @default(now())
+  
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  lines     TicketSettlementLine[]
+  
+  @@map("ticket_settlements")
+}
+
+// Mapeado para a tabela 'ticket_settlement_lin'
+model TicketSettlementLine {
+  id          String   @id @default(uuid())
+  settlementId String
+  description String
+  amount      Float
+  createdAt   DateTime @default(now())
+  
+  settlement TicketSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  
+  @@map("ticket_settlement_lin")
+}

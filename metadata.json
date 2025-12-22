@@ -1,0 +1,5 @@
+{
+  "name": "Fantasy12",
+  "description": "A sports pool management application where users predict outcomes of 12-game rounds with Double and Super Double multipliers.",
+  "requestFramePermissions": []
+}
